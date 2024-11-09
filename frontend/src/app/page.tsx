@@ -17,9 +17,18 @@ const statusColors = {
 }
 
 const typeIcons = {
-    'express': '⚡',  // Express lift
-    'quad': '4️⃣',    // Quad lift
-    'magic-carpet': '🔮', // Magic carpet
+    'express': '⚡',        // Express lift
+    'quad': '4️⃣',          // Quad lift
+    'chair_lift': '🪑',         // Chair lift
+    'mixed_lift': '🪑+🚡',    // Mixed lift (usually gondola + chair)
+    'gondola': '🚡',       // Gondola
+    't-bar': '⊤',         // T-bar
+    'platter': '🍽️',       // Platter/button lift
+    'drag-lift': '↟',     // Generic drag lift
+    'magic_carpet': '🔮',  // Magic carpet
+    'station': '🏠',      // Station/terminal
+    'goods': '📦',        // Goods lift
+    'drag_lift': '↟',     // Drag lift
 }
 
 const difficultyColors = {
