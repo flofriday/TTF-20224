@@ -124,37 +124,55 @@ export default function Home() {
                     statusColors={statusColors}
                     typeIcons={typeIcons}
                     difficultyColors={difficultyColors}
+                    onLiftSelect={setSelectedLift}
                 />
 
-                {/* Lift List */}
+                {/* Updated Lift List with HoverCard */}
                 <div className="grid gap-4">
                     <h2 className="text-2xl font-semibold text-slate-900">Lifts</h2>
                     <div className="grid gap-3">
                         {lifts.map((lift) => (
-                            <Button
-                                key={lift.id}
-                                variant={selectedLift === lift.id ? "default" : "outline"}
-                                onClick={() => setSelectedLift(lift.id)}
-                                className={`w-full p-6 justify-between group hover:shadow-md
-                  ${selectedLift === lift.id ? 'ring-2 ring-offset-2 ring-slate-900' : ''}
-                  transition-all duration-300`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xl">{typeIcons[lift.type]}</span>
-                                    <div className="flex flex-col items-start">
-                                        <span className="font-medium">{lift.name}</span>
-                                        <span className="text-sm text-slate-600">{lift.waitTime} min wait</span>
+                            <HoverCard key={lift.id}>
+                                <HoverCardTrigger asChild>
+                                    <Button
+                                        variant={selectedLift === lift.id ? "default" : "outline"}
+                                        onClick={() => setSelectedLift(lift.id)}
+                                        className={`w-full p-6 justify-between group hover:shadow-md
+                                            ${selectedLift === lift.id ? 'ring-2 ring-offset-2 ring-slate-900' : ''}
+                                            transition-all duration-300`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xl">{typeIcons[lift.type]}</span>
+                                            <div className="flex flex-col items-start">
+                                                <span className="font-medium">{lift.name}</span>
+                                                <span className="text-sm text-slate-600">{lift.waitTime} min wait</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Badge variant="secondary" className={difficultyColors[lift.difficulty]}>
+                                                {lift.difficulty}
+                                            </Badge>
+                                            <Badge variant="secondary" className={statusColors[lift.status]}>
+                                                {lift.status}
+                                            </Badge>
+                                        </div>
+                                    </Button>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-80">
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold">{lift.name}</h4>
+                                        <div className="text-sm text-slate-600 space-y-1">
+                                            <p>Type: {lift.type}</p>
+                                            <p>Status: {lift.status}</p>
+                                            <p>Wait Time: {lift.waitTime} minutes</p>
+                                            <p>Difficulty: {lift.difficulty}</p>
+                                            {lift.description && (
+                                                <p className="text-xs mt-2">{lift.description}</p>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Badge variant="secondary" className={difficultyColors[lift.difficulty]}>
-                                        {lift.difficulty}
-                                    </Badge>
-                                    <Badge variant="secondary" className={statusColors[lift.status]}>
-                                        {lift.status}
-                                    </Badge>
-                                </div>
-                            </Button>
+                                </HoverCardContent>
+                            </HoverCard>
                         ))}
                     </div>
                 </div>

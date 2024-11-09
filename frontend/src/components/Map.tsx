@@ -14,13 +14,14 @@ interface MapProps {
     statusColors: Record<string, string>
     typeIcons: Record<string, string>
     difficultyColors: Record<string, string>
+    onLiftSelect?: (liftId: string) => void
 }
 
 // Add constants for the base image dimensions
 const BASE_WIDTH = 1600
 const BASE_HEIGHT = 1200
 
-export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, difficultyColors }: MapProps) {
+export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, difficultyColors, onLiftSelect }: MapProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -33,10 +34,17 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
         const ctx = canvas.getContext('2d')
         if (!ctx) return
 
+        // Get current container dimensions
+        const rect = container.getBoundingClientRect()
+
+        // Update canvas dimensions to match container
+        canvas.width = rect.width
+        canvas.height = rect.height
+
         // Clear the canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-        // Calculate scale factors
+        // Calculate scale factors based on current dimensions
         const scaleX = canvas.width / BASE_WIDTH
         const scaleY = canvas.height / BASE_HEIGHT
 
@@ -55,7 +63,7 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
             const statusColor = statusColors[lift.status].split(' ')[0]
             const color = statusColor.replace('bg-', '')
 
-            drawLiftLine(ctx, scaledPath, color, isSelected, 1) // Remove scale factor as we're pre-scaling
+            drawLiftLine(ctx, scaledPath, color, isSelected, isSelected ? 2 : 1) // Adjust line width based on selection
         })
     }, [lifts, selectedLift, statusColors])
 
@@ -127,17 +135,18 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
                         <HoverCardTrigger>
                             <div
                                 className={`absolute cursor-pointer transition-all duration-300
-                                ${selectedLift === lift.id ? 'scale-150 z-20' : 'scale-100 z-10'}`}
+                                ${selectedLift === lift.id ? 'scale-125 z-20' : 'scale-100 z-10'}`}
                                 style={{
                                     left: `${position.left}px`,
                                     top: `${position.top}px`,
                                     transform: 'translate(-50%, -50%)'
                                 }}
+                                onClick={() => onLiftSelect?.(lift.id)}
                             >
-                                <div className={`w-6 h-6 rounded-full ${statusColors[lift.status].split(' ')[0]} 
+                                <div className={`w-4 h-4 rounded-full ${statusColors[lift.status].split(' ')[0]} 
                                     shadow-lg flex items-center justify-center
                                     border-2 border-white`}>
-                                    <span className="text-xs">{typeIcons[lift.type]}</span>
+                                    <span className="text-[10px]">{typeIcons[lift.type]}</span>
                                 </div>
                             </div>
                         </HoverCardTrigger>
