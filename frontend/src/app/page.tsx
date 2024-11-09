@@ -9,6 +9,7 @@ import { getLifts, getSkiMap } from '@/lib/api'
 import { Lift } from '@/types/lift'
 import { drawLiftLine } from '@/lib/utils'
 import { Map } from '@/components/Map'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 const statusColors = {
     open: 'bg-emerald-500 text-white',
@@ -86,10 +87,10 @@ export default function Home() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
                 <main className="container mx-auto p-6 space-y-8 max-w-5xl">
                     <Card className="p-8">
-                        <p className="text-center text-slate-600">Loading lift data...</p>
+                        <p className="text-center text-slate-600 dark:text-slate-400">Loading lift data...</p>
                     </Card>
                 </main>
             </div>
@@ -98,10 +99,10 @@ export default function Home() {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
                 <main className="container mx-auto p-6 space-y-8 max-w-5xl">
                     <Card className="p-8">
-                        <p className="text-center text-red-600">{error}</p>
+                        <p className="text-center text-red-600 dark:text-red-400">{error}</p>
                     </Card>
                 </main>
             </div>
@@ -109,11 +110,15 @@ export default function Home() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+            <div className="absolute top-4 right-4">
+                <ThemeToggle />
+            </div>
+
             <main className="container mx-auto p-6 space-y-8 max-w-5xl">
                 <div className="space-y-2">
-                    <h1 className="text-4xl font-bold text-slate-900">Mountain Resort Map</h1>
-                    <p className="text-slate-600">Select a lift to see its route and details</p>
+                    <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-100">SlopeFlow</h1>
+                    <p className="text-slate-600 dark:text-slate-400">Find unused slopes</p>
                 </div>
 
                 {/* Status Legend */}

@@ -1,4 +1,6 @@
 import "@/app/globals.css"
+import { ThemeProvider } from "@/components/theme-provider"
+
 
 export const metadata = {
   title: 'SlopeFlow',
@@ -14,7 +16,14 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head />
       <body className="min-h-screen bg-background font-sans antialiased">
-        {children}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )

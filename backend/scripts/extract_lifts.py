@@ -291,7 +291,7 @@ def extract_ski_lifts(area_name):
             for lon, lat in coords
         ]
         x_pixels, y_pixels = zip(*pixel_coords)
-        ax.plot(x_pixels, y_pixels, color="blue", linewidth=2)
+        # ax.plot(x_pixels, y_pixels, color="blue", linewidth=2)
 
     plt.savefig(
         "data/ski_map.png",
@@ -339,7 +339,11 @@ if __name__ == "__main__":
             lift_dict["wait_time"] = random.randint(0, 10)
             lift_dict["image_url"] = ""
             lift_dict["webcam_url"] = ""
-
+            lift_dict["status"] = random.choice(["open", "closed", "hold"])
+            lift_dict["difficulty"] = lift_data["difficulty"]
+            lift_dict["type"] = lift_data["type"]
+            lift_dict["capacity"] = lift_data["capacity"]
+            lift_dict["description"] = lift_data["description"]
             # Create and add the lift
             lift = SkiLift(**lift_dict)
             db.add(lift)
