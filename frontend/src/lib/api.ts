@@ -15,4 +15,18 @@ export async function getLifts(): Promise<Lift[]> {
     }
 
     return response.json()
+}
+
+export async function getSkiMap(): Promise<string> {
+    const response = await fetch('/api/ski-map', {
+        method: 'GET',
+        cache: 'no-store',
+    })
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch ski map: ${response.statusText}`)
+    }
+
+    const blob = await response.blob()
+    return URL.createObjectURL(blob)
 } 

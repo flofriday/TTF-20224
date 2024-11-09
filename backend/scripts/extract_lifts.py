@@ -113,30 +113,32 @@ def get_elevation_data(bounds):
 
 def plot_contours(ax, X, Y, elevations):
     """Plot elevation contours on the given axes"""
-    # Plot contour lines
+    # Plot contour lines with no labels
     contours = ax.contour(
         X,
         Y,
         elevations,
-        levels=15,  # Number of contour lines
+        levels=15,
         colors="gray",
         alpha=0.5,
         linewidths=0.5,
     )
-
-    # Optional: Add contour labels
-    ax.clabel(contours, inline=True, fontsize=8, fmt="%1.0f")
+    # Remove contour labels
+    # ax.clabel(contours, inline=True, fontsize=8, fmt="%1.0f")  # Comment out or remove this line
 
 
 def transform_coords(lon, lat, bounds):
     """Transform geographic coordinates to image coordinates"""
-    # Define image dimensions (you may want to adjust these)
+    # Use consistent image dimensions
     IMG_WIDTH = 800
     IMG_HEIGHT = 600
 
     # Transform coordinates using the provided bounds
+    # Flip the y-coordinate calculation to match the canvas coordinate system
     x = (lon - bounds[0]) / (bounds[2] - bounds[0]) * IMG_WIDTH
-    y = (lat - bounds[1]) / (bounds[3] - bounds[1]) * IMG_HEIGHT
+    y = IMG_HEIGHT - (
+        (lat - bounds[1]) / (bounds[3] - bounds[1]) * IMG_HEIGHT
+    )  # Flip Y coordinates
 
     return x, y
 
@@ -257,10 +259,14 @@ def extract_ski_lifts(area_name):
     bounds = [float(x) for x in bbox.split(",")]
     elevations = get_elevation_data(bounds)
 
-    # Create figure and axes before plotting
+    # Create figure and axes with specific settings
     fig, ax = plt.subplots(
-        figsize=(IMG_WIDTH / 100, IMG_HEIGHT / 100)
-    )  # Convert pixels to inches
+        figsize=(IMG_WIDTH / 100, IMG_HEIGHT / 100),
+        dpi=100,
+    )
+
+    # Remove all axes, ticks, and labels
+    ax.set_axis_off()
 
     # Transform coordinates and create meshgrid
     GRID_SIZE = elevations.shape[0]  # Should be 50
@@ -281,25 +287,34 @@ def extract_ski_lifts(area_name):
         coords = list(row.geometry.coords)
         img_coords = [transform_coords(x, y, bounds) for x, y in coords]
         x_coords, y_coords = zip(*img_coords)
-        plt.plot(x_coords, y_coords, color="red", linewidth=2)
+        # plt.plot(x_coords, y_coords, color="red", linewidth=2)
 
     # Set the plot limits to match image dimensions
     ax.set_xlim(0, IMG_WIDTH)
     ax.set_ylim(IMG_HEIGHT, 0)  # Flip y-axis
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)  # Remove padding
 
-    # Clean up the map
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_frame_on(False)
+    # Ensure the plot takes up the full space
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
-    # Save the map
-    plt.savefig("data/ski_map.png", dpi=300, bbox_inches="tight")
+    # Save the map with exact dimensions and no extra space
+    plt.savefig(
+        "data/ski_map.png",
+        dpi=100,
+        bbox_inches="tight",
+        pad_inches=0,
+        format="png",
+        transparent=True,  # Optional: makes background transparent
+    )
 
     # When converting to database format, store the transformed coordinates
     lifts_data = []
     for idx, row in gdf.iterrows():
         coords = list(row.geometry.coords)
         img_coords = [transform_coords(x, y, bounds) for x, y in coords]
+
+        # Round coordinates to integers to match pixel positions
+        img_coords = [[round(x), round(y)] for x, y in img_coords]
 
         lift_data = {
             "name": row["name"],
@@ -311,9 +326,7 @@ def extract_ski_lifts(area_name):
             "status": row["status"],
             "type": row["type"],
             "difficulty": row["difficulty"],
-            "path": json.dumps(
-                [[x, y] for x, y in img_coords]
-            ),  # Store image coordinates
+            "path": json.dumps(img_coords),  # Store rounded coordinates
             "wait_time": 5,  # Default wait time
         }
         lifts_data.append(lift_data)
@@ -335,9 +348,23 @@ if __name__ == "__main__":
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
 
-    for lift_data in lifts:
-        lift = SkiLift(**lift_data)
-        db.add(lift)
+    try:
+        # Delete all existing records
+        print("Clearing existing database records...")
+        db.query(SkiLift).delete()
+        db.commit()
+        print("Database cleared successfully")
 
-    db.commit()
-    db.close()
+        # Add new records
+        print(f"Adding {len(lifts)} new lift records...")
+        for lift_data in lifts:
+            lift = SkiLift(**lift_data)
+            db.add(lift)
+
+        db.commit()
+        print("New lift data committed successfully")
+    except Exception as e:
+        print(f"Error during database operations: {e}")
+        db.rollback()
+    finally:
+        db.close()

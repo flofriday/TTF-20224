@@ -1,11 +1,11 @@
 export interface Lift {
-    id: number
+    id: string
     name: string
     status: 'open' | 'closed' | 'hold'
     type: 'express' | 'quad' | 'magic-carpet'
     difficulty: 'beginner' | 'intermediate' | 'advanced'
-    path: [number, number][]
     waitTime: number
+    path: number[][] | string
     capacity: number
     currentLoad: number
     description: string

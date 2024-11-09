@@ -5,9 +5,9 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
-import { getLifts } from '@/lib/api'
+import { getLifts, getSkiMap } from '@/lib/api'
 import { Lift } from '@/types/lift'
-import { drawLiftLine, drawContourLines } from '@/lib/utils'
+import { drawLiftLine } from '@/lib/utils'
 
 const statusColors = {
     open: 'bg-emerald-500 text-white',
@@ -32,6 +32,7 @@ export default function Home() {
     const [lifts, setLifts] = useState<Lift[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [mapUrl, setMapUrl] = useState<string | null>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -39,21 +40,21 @@ export default function Home() {
     const drawLifts = () => {
         const canvas = canvasRef.current
         if (!canvas) return
-        
+
         const ctx = canvas.getContext('2d')
         if (!ctx) return
 
         // Clear the canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-        // Draw contour lines first
-        drawContourLines(ctx)
-
-        // Draw lift lines on top
+        // Draw lift lines
         lifts.forEach((lift) => {
+            const path = typeof lift.path === 'string' ? JSON.parse(lift.path) : lift.path
+            console.log('Drawing lift:', lift.name, 'Path:', path)
+
             drawLiftLine(
                 ctx,
-                lift.path,
+                path,
                 selectedLift === lift.id ? '#0f172a' : '#64748b',
                 selectedLift === lift.id ? 4 : 2
             )
@@ -70,6 +71,7 @@ export default function Home() {
             try {
                 setIsLoading(true)
                 const data = await getLifts()
+                console.log('Received lift data:', data)
                 setLifts(data)
                 setError(null)
             } catch (err) {
@@ -85,13 +87,17 @@ export default function Home() {
 
     // Function to update canvas size
     const updateCanvasSize = () => {
-        const container = containerRef.current
         const canvas = canvasRef.current
-        if (!container || !canvas) return
+        if (!canvas) return
 
-        // Set canvas size to match container's pixel dimensions
-        canvas.width = container.clientWidth
-        canvas.height = container.clientHeight
+        // Set fixed dimensions to match backend
+        canvas.width = 800
+        canvas.height = 600
+
+        // Scale canvas to fit container while maintaining aspect ratio
+        canvas.style.width = '100%'
+        canvas.style.height = '100%'
+        canvas.style.objectFit = 'contain'
 
         // Redraw after resize
         drawLifts()
@@ -103,6 +109,56 @@ export default function Home() {
         window.addEventListener('resize', updateCanvasSize)
         return () => window.removeEventListener('resize', updateCanvasSize)
     }, [])
+
+    useEffect(() => {
+        const fetchMap = async () => {
+            try {
+                const url = await getSkiMap()
+                setMapUrl(url)
+            } catch (err) {
+                console.error('Failed to fetch map:', err)
+                setError('Failed to load map')
+            }
+        }
+
+        fetchMap()
+
+        return () => {
+            // Cleanup object URL when component unmounts
+            if (mapUrl) {
+                URL.revokeObjectURL(mapUrl)
+            }
+        }
+    }, [])
+
+    // Add a function to calculate the correct position
+    const calculatePosition = (point: number[]) => {
+        const container = containerRef.current
+        if (!container) return { left: 0, top: 0 }
+
+        const containerWidth = container.clientWidth
+        const containerHeight = container.clientHeight
+
+        // Calculate scaling factors
+        const scaleX = containerWidth / 800
+        const scaleY = containerHeight / 600
+
+        // Use the smaller scale to maintain aspect ratio
+        const scale = Math.min(scaleX, scaleY)
+
+        // Calculate the actual dimensions of the map
+        const mapWidth = 800 * scale
+        const mapHeight = 600 * scale
+
+        // Calculate offsets to center the map
+        const offsetX = (containerWidth - mapWidth) / 2
+        const offsetY = (containerHeight - mapHeight) / 2
+
+        return {
+            left: (point[0] * scale) + offsetX,
+            top: (point[1] * scale) + offsetY
+        }
+    }
 
     if (isLoading) {
         return (
@@ -147,53 +203,72 @@ export default function Home() {
                 </div>
 
                 {/* Map Container */}
-                <Card 
+                <Card
                     ref={containerRef}
                     className="relative w-full h-[600px] overflow-hidden shadow-xl bg-white"
                 >
+                    {mapUrl && (
+                        <img
+                            src={mapUrl}
+                            alt="Ski Map"
+                            className="absolute inset-0 w-full h-full object-contain"
+                        />
+                    )}
                     <canvas
                         ref={canvasRef}
+                        width={800}
+                        height={600}
                         className="absolute inset-0 w-full h-full pointer-events-none"
-                        width='1000px' height='1000px'
+                        style={{
+                            objectFit: 'contain',
+                            imageRendering: 'crisp-edges'
+                        }}
                     />
 
                     {/* Lift Markers */}
-                    {lifts.map((lift) => (
-                        <HoverCard key={lift.id}>
-                            <HoverCardTrigger>
-                                <div
-                                    className={`absolute cursor-pointer transition-all duration-300
-                                    ${selectedLift === lift.id ? 'scale-150 z-20' : 'scale-100 z-10'}`}
-                                    style={{
-                                        left: `${(lift.path[lift.path.length - 1][0] / 600) * 100}%`,
-                                        top: `${(lift.path[lift.path.length - 1][1] / 600) * 100}%`,
-                                    }}
-                                >
-                                    <div className={`w-6 h-6 rounded-full ${statusColors[lift.status]} 
-                                        shadow-lg flex items-center justify-center
-                                        border-2 border-white transform -translate-x-1/2 -translate-y-1/2`}>
-                                        <span className="text-xs">{typeIcons[lift.type]}</span>
+                    {lifts.map((lift) => {
+                        const path = typeof lift.path === 'string' ? JSON.parse(lift.path) : lift.path
+                        const lastPoint = path[path.length - 1]
+                        const position = calculatePosition(lastPoint)
+
+                        return (
+                            <HoverCard key={lift.id}>
+                                <HoverCardTrigger>
+                                    <div
+                                        className={`absolute cursor-pointer transition-all duration-300
+                                        ${selectedLift === lift.id ? 'scale-150 z-20' : 'scale-100 z-10'}`}
+                                        style={{
+                                            left: `${position.left}px`,
+                                            top: `${position.top}px`,
+                                            transform: 'translate(-50%, -50%)'
+                                        }}
+                                    >
+                                        <div className={`w-6 h-6 rounded-full ${statusColors[lift.status]} 
+                                            shadow-lg flex items-center justify-center
+                                            border-2 border-white`}>
+                                            <span className="text-xs">{typeIcons[lift.type]}</span>
+                                        </div>
                                     </div>
-                                </div>
-                            </HoverCardTrigger>
-                            <HoverCardContent className="w-64">
-                                <div className="space-y-2">
-                                    <h4 className="font-semibold">{lift.name}</h4>
-                                    <div className="flex gap-2">
-                                        <Badge variant="secondary" className={statusColors[lift.status]}>
-                                            {lift.status.toUpperCase()}
-                                        </Badge>
-                                        <Badge variant="secondary" className={difficultyColors[lift.difficulty]}>
-                                            {lift.difficulty.toUpperCase()}
-                                        </Badge>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-64">
+                                    <div className="space-y-2">
+                                        <h4 className="font-semibold">{lift.name}</h4>
+                                        <div className="flex gap-2">
+                                            <Badge variant="secondary" className={statusColors[lift.status]}>
+                                                {lift.status.toUpperCase()}
+                                            </Badge>
+                                            <Badge variant="secondary" className={difficultyColors[lift.difficulty]}>
+                                                {lift.difficulty.toUpperCase()}
+                                            </Badge>
+                                        </div>
+                                        <p className="text-sm text-slate-600">
+                                            Wait time: {lift.waitTime} minutes
+                                        </p>
                                     </div>
-                                    <p className="text-sm text-slate-600">
-                                        Wait time: {lift.waitTime} minutes
-                                    </p>
-                                </div>
-                            </HoverCardContent>
-                        </HoverCard>
-                    ))}
+                                </HoverCardContent>
+                            </HoverCard>
+                        )
+                    })}
                 </Card>
 
                 {/* Lift List */}
