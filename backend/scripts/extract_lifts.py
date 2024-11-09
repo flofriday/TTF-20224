@@ -12,6 +12,10 @@ import os
 import sys
 from pathlib import Path
 
+# Image dimensions
+IMG_WIDTH = 800
+IMG_HEIGHT = 600
+
 
 class WayHandler(osmium.SimpleHandler):
     def __init__(self):
@@ -64,23 +68,77 @@ class WayHandler(osmium.SimpleHandler):
 
 def get_elevation_data(bounds):
     """Fetch elevation data from Open-Elevation API"""
+    # Increase resolution for better contours
+    GRID_SIZE = 50  # Increased from 20
+
     url = "https://api.open-elevation.com/api/v1/lookup"
     points = []
 
-    # Create a grid of points
-    lat_range = np.linspace(bounds[1], bounds[3], 20)
-    lon_range = np.linspace(bounds[0], bounds[2], 20)
+    # Create a denser grid of points
+    lat_range = np.linspace(bounds[1], bounds[3], GRID_SIZE)
+    lon_range = np.linspace(bounds[0], bounds[2], GRID_SIZE)
 
     for lat in lat_range:
         for lon in lon_range:
             points.append({"latitude": lat, "longitude": lon})
 
-    response = requests.post(url, json={"locations": points})
-    results = response.json()["results"]
+    try:
+        response = requests.post(url, json={"locations": points})
+        if response.status_code != 200:
+            print(
+                f"Error: Failed to get elevation data (Status: {response.status_code})"
+            )
+            return np.zeros((GRID_SIZE, GRID_SIZE))
 
-    # Reshape the elevation data
-    elevations = np.array([r["elevation"] for r in results]).reshape(20, 20)
-    return elevations
+        results = response.json()
+        if "results" not in results:
+            print("Error: Unexpected API response format")
+            return np.zeros((GRID_SIZE, GRID_SIZE))
+
+        elevations = np.array([r["elevation"] for r in results["results"]]).reshape(
+            GRID_SIZE, GRID_SIZE
+        )
+
+        # Apply smoothing to reduce noise
+        from scipy.ndimage import gaussian_filter
+
+        elevations = gaussian_filter(elevations, sigma=1)
+
+        return elevations
+
+    except Exception as e:
+        print(f"Error fetching elevation data: {str(e)}")
+        return np.zeros((GRID_SIZE, GRID_SIZE))
+
+
+def plot_contours(ax, X, Y, elevations):
+    """Plot elevation contours on the given axes"""
+    # Plot contour lines
+    contours = ax.contour(
+        X,
+        Y,
+        elevations,
+        levels=15,  # Number of contour lines
+        colors="gray",
+        alpha=0.5,
+        linewidths=0.5,
+    )
+
+    # Optional: Add contour labels
+    ax.clabel(contours, inline=True, fontsize=8, fmt="%1.0f")
+
+
+def transform_coords(lon, lat, bounds):
+    """Transform geographic coordinates to image coordinates"""
+    # Define image dimensions (you may want to adjust these)
+    IMG_WIDTH = 800
+    IMG_HEIGHT = 600
+
+    # Transform coordinates using the provided bounds
+    x = (lon - bounds[0]) / (bounds[2] - bounds[0]) * IMG_WIDTH
+    y = (lat - bounds[1]) / (bounds[3] - bounds[1]) * IMG_HEIGHT
+
+    return x, y
 
 
 def extract_ski_lifts(area_name):
@@ -199,45 +257,29 @@ def extract_ski_lifts(area_name):
     bounds = [float(x) for x in bbox.split(",")]
     elevations = get_elevation_data(bounds)
 
-    # Create the map
-    fig, ax = plt.subplots(figsize=(15, 15))
+    # Create figure and axes before plotting
+    fig, ax = plt.subplots(
+        figsize=(IMG_WIDTH / 100, IMG_HEIGHT / 100)
+    )  # Convert pixels to inches
 
-    # Define image dimensions
-    IMG_WIDTH = 1500  # pixels
-    IMG_HEIGHT = 1500  # pixels
-
-    # Get the bounds of all geometries
-    total_bounds = gdf.total_bounds  # Returns (minx, miny, maxx, maxy)
-
-    def transform_coords(x, y):
-        """Transform geographic coordinates to image coordinates"""
-        # Normalize coordinates to 0-1 range
-        x_norm = (x - total_bounds[0]) / (total_bounds[2] - total_bounds[0])
-        y_norm = (y - total_bounds[1]) / (total_bounds[3] - total_bounds[1])
-
-        # Scale to image size and flip y-axis (image coordinates start from top)
-        x_img = x_norm * IMG_WIDTH
-        y_img = (1 - y_norm) * IMG_HEIGHT
-
-        return x_img, y_img
-
-    # Plot contour lines with transformed coordinates
-    x = np.linspace(bounds[0], bounds[2], 20)
-    y = np.linspace(bounds[1], bounds[3], 20)
+    # Transform coordinates and create meshgrid
+    GRID_SIZE = elevations.shape[0]  # Should be 50
+    x = np.linspace(bounds[0], bounds[2], GRID_SIZE)
+    y = np.linspace(bounds[1], bounds[3], GRID_SIZE)
     X, Y = np.meshgrid(x, y)
     X_img = np.zeros_like(X)
     Y_img = np.zeros_like(Y)
 
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
-            X_img[i, j], Y_img[i, j] = transform_coords(X[i, j], Y[i, j])
+            X_img[i, j], Y_img[i, j] = transform_coords(X[i, j], Y[i, j], bounds)
 
-    plt.contour(X_img, Y_img, elevations, colors="gray", alpha=0.5)
+    plot_contours(ax, X_img, Y_img, elevations)
 
     # Transform lift coordinates and plot
     for idx, row in gdf.iterrows():
         coords = list(row.geometry.coords)
-        img_coords = [transform_coords(x, y) for x, y in coords]
+        img_coords = [transform_coords(x, y, bounds) for x, y in coords]
         x_coords, y_coords = zip(*img_coords)
         plt.plot(x_coords, y_coords, color="red", linewidth=2)
 
@@ -251,13 +293,13 @@ def extract_ski_lifts(area_name):
     ax.set_frame_on(False)
 
     # Save the map
-    plt.savefig("ski_map.png", dpi=300, bbox_inches="tight")
+    plt.savefig("data/ski_map.png", dpi=300, bbox_inches="tight")
 
     # When converting to database format, store the transformed coordinates
     lifts_data = []
     for idx, row in gdf.iterrows():
         coords = list(row.geometry.coords)
-        img_coords = [transform_coords(x, y) for x, y in coords]
+        img_coords = [transform_coords(x, y, bounds) for x, y in coords]
 
         lift_data = {
             "name": row["name"],
