@@ -32,6 +32,7 @@ export default function Home() {
     const [lifts, setLifts] = useState<Lift[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const containerRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
 
     // Function to draw all lift lines
@@ -79,6 +80,27 @@ export default function Home() {
         fetchLifts()
     }, [])
 
+    // Function to update canvas size
+    const updateCanvasSize = () => {
+        const container = containerRef.current
+        const canvas = canvasRef.current
+        if (!container || !canvas) return
+
+        // Set canvas size to match container's pixel dimensions
+        canvas.width = container.clientWidth
+        canvas.height = container.clientHeight
+
+        // Redraw after resize
+        drawLifts()
+    }
+
+    // Effect to handle canvas resize
+    useEffect(() => {
+        updateCanvasSize()
+        window.addEventListener('resize', updateCanvasSize)
+        return () => window.removeEventListener('resize', updateCanvasSize)
+    }, [])
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
@@ -122,7 +144,10 @@ export default function Home() {
                 </div>
 
                 {/* Map Container */}
-                <Card className="relative w-full h-[600px] overflow-hidden shadow-xl">
+                <Card 
+                    ref={containerRef}
+                    className="relative w-full h-[600px] overflow-hidden shadow-xl"
+                >
                     <div className="absolute inset-0 bg-slate-200/50" />
                     <canvas
                         ref={canvasRef}
@@ -139,8 +164,8 @@ export default function Home() {
                                     className={`absolute cursor-pointer transition-all duration-300
                                     ${selectedLift === lift.id ? 'scale-150 z-20' : 'scale-100 z-10'}`}
                                     style={{
-                                        left: lift.path[0][0],
-                                        top: lift.path[0][1],
+                                        left: `${(lift.path[lift.path.length - 1][0] / 600) * 100}%`,
+                                        top: `${(lift.path[lift.path.length - 1][1] / 600) * 100}%`,
                                     }}
                                 >
                                     <div className={`w-6 h-6 rounded-full ${statusColors[lift.status]} 
