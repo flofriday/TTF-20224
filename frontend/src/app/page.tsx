@@ -11,12 +11,6 @@ import { drawLiftLine } from '@/lib/utils'
 import { Map } from '@/components/Map'
 import { ThemeToggle } from '@/components/theme-toggle'
 
-const statusColors = {
-    open: 'bg-emerald-500 text-white',
-    closed: 'bg-red-500 text-white',
-    hold: 'bg-amber-500 text-white'
-}
-
 const typeIcons = {
     'express': '⚡',        // Express lift
     'quad': '4️⃣',          // Quad lift
@@ -33,9 +27,15 @@ const typeIcons = {
 }
 
 const difficultyColors = {
-    'beginner': 'bg-green-500 text-white',
-    'intermediate': 'bg-blue-500 text-white',
+    'beginner': 'bg-emerald-500 text-white',
+    'intermediate': 'bg-blue-400 text-white',
     'advanced': 'bg-black text-white'
+}
+
+const statusColors = {
+    open: 'bg-teal-600 text-white',
+    closed: 'bg-red-500 text-white',
+    hold: 'bg-amber-500 text-white'
 }
 
 export default function Home() {
@@ -148,11 +148,10 @@ export default function Home() {
                         {lifts.map((lift) => (
                             <HoverCard key={lift.id}>
                                 <HoverCardTrigger asChild>
-                                    <Button
-                                        variant={selectedLift === lift.id ? "default" : "outline"}
+                                    <div
                                         onClick={() => setSelectedLift(lift.id)}
-                                        className={`w-full p-6 justify-between group hover:shadow-md
-                                            ${selectedLift === lift.id ? 'ring-2 ring-offset-2 ring-slate-900' : ''}
+                                        className={`p-4 rounded-lg w-full justify-between group hover:shadow-md border-2 b
+                                            ${selectedLift === lift.id ? 'bg-gray-200 border-slate-700' : ''}
                                             transition-all duration-300`}
                                     >
                                         <div className="flex items-center gap-3">
@@ -162,15 +161,15 @@ export default function Home() {
                                                 <span className="text-sm text-slate-600">{lift.waitTime} min wait</span>
                                             </div>
                                         </div>
-                                        <div className="flex gap-2">
-                                            <Badge variant="secondary" className={difficultyColors[lift.difficulty]}>
+                                        <div className="pt-2 flex gap-1 items-center">
+                                            <Badge variant="secondary" className={`rounded-full ${difficultyColors[lift.difficulty]}`}>
                                                 {lift.difficulty}
                                             </Badge>
-                                            <Badge variant="secondary" className={statusColors[lift.status]}>
+                                            <Badge variant="secondary" className={`rounded-full ${statusColors[lift.status]}`}>
                                                 {lift.status}
                                             </Badge>
                                         </div>
-                                    </Button>
+                                    </div>
                                 </HoverCardTrigger>
                                 <HoverCardContent className="w-80">
                                     <div className="space-y-2">
