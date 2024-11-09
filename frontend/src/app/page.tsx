@@ -146,7 +146,7 @@ export default function Home() {
                                     <div
                                         onClick={() => setSelectedLift(lift.id)}
                                         className={`p-4 rounded-lg w-full justify-between group hover:shadow-md border-2 b
-                                            ${selectedLift === lift.id ? 'bg-gray-300 border-slate-700' : ''}
+                                            ${selectedLift === lift.id ? 'bg-gray-200 border-slate-700' : ''}
                                             transition-all duration-300`}
                                     >
                                         <div className="flex items-center gap-3">
