@@ -13,8 +13,8 @@ import sys
 from pathlib import Path
 
 # Image dimensions
-IMG_WIDTH = 800
-IMG_HEIGHT = 600
+IMG_WIDTH = 1600
+IMG_HEIGHT = 1200
 
 
 class WayHandler(osmium.SimpleHandler):
@@ -68,8 +68,8 @@ class WayHandler(osmium.SimpleHandler):
 
 def get_elevation_data(bounds):
     """Fetch elevation data from Open-Elevation API"""
-    # Increase resolution for better contours
-    GRID_SIZE = 50  # Increased from 20
+    # Match GRID_SIZE with the one used later in the code
+    GRID_SIZE = 100  # Changed from 50 to match the coordinate grid
 
     url = "https://api.open-elevation.com/api/v1/lookup"
     points = []
@@ -113,33 +113,49 @@ def get_elevation_data(bounds):
 
 def plot_contours(ax, X, Y, elevations):
     """Plot elevation contours on the given axes"""
-    # Plot contour lines with no labels
-    contours = ax.contour(
+    # Calculate the elevation range
+    elev_min = np.min(elevations)
+    elev_max = np.max(elevations)
+
+    # Create more levels with smaller intervals
+    # Calculate a good interval (roughly 20m between contour lines)
+    interval = 20
+    levels = np.arange(
+        np.floor(elev_min / interval) * interval,
+        np.ceil(elev_max / interval) * interval,
+        interval,
+    )
+
+    # Plot major contours (every 100m) with darker lines
+    major_levels = np.arange(
+        np.floor(elev_min / 100) * 100, np.ceil(elev_max / 100) * 100, 100
+    )
+    ax.contour(
         X,
         Y,
         elevations,
-        levels=15,
+        levels=major_levels,
+        colors="darkgray",
+        alpha=0.7,
+        linewidths=1.0,
+    )
+
+    # Plot minor contours with lighter lines
+    ax.contour(
+        X,
+        Y,
+        elevations,
+        levels=levels,
         colors="gray",
-        alpha=0.5,
+        alpha=0.3,
         linewidths=0.5,
     )
-    # Remove contour labels
-    # ax.clabel(contours, inline=True, fontsize=8, fmt="%1.0f")  # Comment out or remove this line
 
 
 def transform_coords(lon, lat, bounds):
     """Transform geographic coordinates to image coordinates"""
-    # Use consistent image dimensions
-    IMG_WIDTH = 800
-    IMG_HEIGHT = 600
-
-    # Transform coordinates using the provided bounds
-    # Flip the y-coordinate calculation to match the canvas coordinate system
     x = (lon - bounds[0]) / (bounds[2] - bounds[0]) * IMG_WIDTH
-    y = IMG_HEIGHT - (
-        (lat - bounds[1]) / (bounds[3] - bounds[1]) * IMG_HEIGHT
-    )  # Flip Y coordinates
-
+    y = IMG_HEIGHT - ((lat - bounds[1]) / (bounds[3] - bounds[1]) * IMG_HEIGHT)
     return x, y
 
 
@@ -165,20 +181,39 @@ def extract_ski_lifts(area_name):
 
     location_data = results[0]
 
-    # Define the bounding box
-    bbox = f"{float(location_data['boundingbox'][2])},{float(location_data['boundingbox'][0])},{float(location_data['boundingbox'][3])},{float(location_data['boundingbox'][1])}"
+    # Get the original bounding box - bbox is already a list, no need to split
+    bbox = [
+        float(location_data["boundingbox"][2]),  # min_lon
+        float(location_data["boundingbox"][0]),  # min_lat
+        float(location_data["boundingbox"][3]),  # max_lon
+        float(location_data["boundingbox"][1]),  # max_lat
+    ]
 
-    # Download OSM data
-    api = f"https://overpass-api.de/api/interpreter"
+    # Add padding to the bounding box (100% on each side for much wider view)
+    padding = 0.2  # Changed from 0.2 to 1.0 for 100% padding
+    lon_range = bbox[2] - bbox[0]
+    lat_range = bbox[3] - bbox[1]
+
+    bounds = [
+        bbox[0] - (lon_range * padding),  # min_lon
+        bbox[1] - (lat_range * padding),  # min_lat
+        bbox[2] + (lon_range * padding),  # max_lon
+        bbox[3] + (lat_range * padding),  # max_lat
+    ]
+
+    # Update the Overpass query to use the padded bounds
     query = f"""
     [out:json][timeout:25];
-    // Get all aerialways in and around the area
+    // Get all aerialways in the padded area
     (
-        way["aerialway"](around:5000,{location_data['lat']},{location_data['lon']});
+        way["aerialway"]({bounds[1]},{bounds[0]},{bounds[3]},{bounds[2]});
         >;  // Get all nodes
     );
     out body;
     """
+
+    # Download OSM data
+    api = f"https://overpass-api.de/api/interpreter"
 
     # Add debug print for query
     print(f"Overpass Query: {query}")
@@ -256,10 +291,10 @@ def extract_ski_lifts(area_name):
     gdf.set_crs(epsg=4326, inplace=True)  # Set coordinate reference system to WGS84
 
     # Get elevation data
-    bounds = [float(x) for x in bbox.split(",")]
-    elevations = get_elevation_data(bounds)
+    # bounds is already properly formatted from earlier calculations
+    elevations = get_elevation_data(bounds)  # Use the existing bounds variable
 
-    # Create figure and axes with specific settings
+    # Create figure with the same dimensions
     fig, ax = plt.subplots(
         figsize=(IMG_WIDTH / 100, IMG_HEIGHT / 100),
         dpi=100,
@@ -268,8 +303,8 @@ def extract_ski_lifts(area_name):
     # Remove all axes, ticks, and labels
     ax.set_axis_off()
 
-    # Transform coordinates and create meshgrid
-    GRID_SIZE = elevations.shape[0]  # Should be 50
+    # Update the meshgrid using padded bounds
+    GRID_SIZE = 100
     x = np.linspace(bounds[0], bounds[2], GRID_SIZE)
     y = np.linspace(bounds[1], bounds[3], GRID_SIZE)
     X, Y = np.meshgrid(x, y)
@@ -280,54 +315,38 @@ def extract_ski_lifts(area_name):
         for j in range(X.shape[1]):
             X_img[i, j], Y_img[i, j] = transform_coords(X[i, j], Y[i, j], bounds)
 
+    # Plot contours with more levels for better detail
     plot_contours(ax, X_img, Y_img, elevations)
 
-    # Transform lift coordinates and plot
-    for idx, row in gdf.iterrows():
-        coords = list(row.geometry.coords)
-        img_coords = [transform_coords(x, y, bounds) for x, y in coords]
-        x_coords, y_coords = zip(*img_coords)
-        # plt.plot(x_coords, y_coords, color="red", linewidth=2)
-
-    # Set the plot limits to match image dimensions
-    ax.set_xlim(0, IMG_WIDTH)
-    ax.set_ylim(IMG_HEIGHT, 0)  # Flip y-axis
-    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)  # Remove padding
-
-    # Ensure the plot takes up the full space
-    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-
-    # Save the map with exact dimensions and no extra space
+    # Save the background map
     plt.savefig(
         "data/ski_map.png",
-        dpi=100,
+        dpi=200,
         bbox_inches="tight",
         pad_inches=0,
         format="png",
-        transparent=True,  # Optional: makes background transparent
+        transparent=True,
     )
 
-    # When converting to database format, store the transformed coordinates
+    # Transform and store lift coordinates for database
     lifts_data = []
     for idx, row in gdf.iterrows():
         coords = list(row.geometry.coords)
         img_coords = [transform_coords(x, y, bounds) for x, y in coords]
-
-        # Round coordinates to integers to match pixel positions
         img_coords = [[round(x), round(y)] for x, y in img_coords]
 
         lift_data = {
             "name": row["name"],
             "capacity": row["capacity"],
-            "current_load": row["capacity"] // 2,  # Estimate
+            "current_load": row["capacity"] // 2,
             "description": row["description"],
-            "image_url": "",  # Would need additional source
-            "webcam_url": "",  # Would need additional source
+            "image_url": "",
+            "webcam_url": "",
             "status": row["status"],
             "type": row["type"],
             "difficulty": row["difficulty"],
-            "path": json.dumps(img_coords),  # Store rounded coordinates
-            "wait_time": 5,  # Default wait time
+            "path": json.dumps(img_coords),
+            "wait_time": 5,
         }
         lifts_data.append(lift_data)
 
@@ -339,7 +358,7 @@ if __name__ == "__main__":
     sys.path.append(str(Path(__file__).parent.parent))
 
     # Example usage
-    lifts = extract_ski_lifts("Zauchensee")
+    lifts = extract_ski_lifts("Obertauern")  # Zauchensee, Obertauern, etc.
 
     # Import after adding to path
     from app.database import engine, SessionLocal

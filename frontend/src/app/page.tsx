@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -8,6 +8,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { getLifts, getSkiMap } from '@/lib/api'
 import { Lift } from '@/types/lift'
 import { drawLiftLine } from '@/lib/utils'
+import { Map } from '@/components/Map'
 
 const statusColors = {
     open: 'bg-emerald-500 text-white',
@@ -33,38 +34,6 @@ export default function Home() {
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [mapUrl, setMapUrl] = useState<string | null>(null)
-    const containerRef = useRef<HTMLDivElement>(null)
-    const canvasRef = useRef<HTMLCanvasElement>(null)
-
-    // Function to draw all lift lines
-    const drawLifts = () => {
-        const canvas = canvasRef.current
-        if (!canvas) return
-
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return
-
-        // Clear the canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-        // Draw lift lines
-        lifts.forEach((lift) => {
-            const path = typeof lift.path === 'string' ? JSON.parse(lift.path) : lift.path
-            console.log('Drawing lift:', lift.name, 'Path:', path)
-
-            drawLiftLine(
-                ctx,
-                path,
-                selectedLift === lift.id ? '#0f172a' : '#64748b',
-                selectedLift === lift.id ? 4 : 2
-            )
-        })
-    }
-
-    // Effect to redraw canvas when selected lift or lifts change
-    useEffect(() => {
-        drawLifts()
-    }, [selectedLift, lifts])
 
     useEffect(() => {
         const fetchLifts = async () => {
@@ -83,31 +52,6 @@ export default function Home() {
         }
 
         fetchLifts()
-    }, [])
-
-    // Function to update canvas size
-    const updateCanvasSize = () => {
-        const canvas = canvasRef.current
-        if (!canvas) return
-
-        // Set fixed dimensions to match backend
-        canvas.width = 800
-        canvas.height = 600
-
-        // Scale canvas to fit container while maintaining aspect ratio
-        canvas.style.width = '100%'
-        canvas.style.height = '100%'
-        canvas.style.objectFit = 'contain'
-
-        // Redraw after resize
-        drawLifts()
-    }
-
-    // Effect to handle canvas resize
-    useEffect(() => {
-        updateCanvasSize()
-        window.addEventListener('resize', updateCanvasSize)
-        return () => window.removeEventListener('resize', updateCanvasSize)
     }, [])
 
     useEffect(() => {
@@ -130,35 +74,6 @@ export default function Home() {
             }
         }
     }, [])
-
-    // Add a function to calculate the correct position
-    const calculatePosition = (point: number[]) => {
-        const container = containerRef.current
-        if (!container) return { left: 0, top: 0 }
-
-        const containerWidth = container.clientWidth
-        const containerHeight = container.clientHeight
-
-        // Calculate scaling factors
-        const scaleX = containerWidth / 800
-        const scaleY = containerHeight / 600
-
-        // Use the smaller scale to maintain aspect ratio
-        const scale = Math.min(scaleX, scaleY)
-
-        // Calculate the actual dimensions of the map
-        const mapWidth = 800 * scale
-        const mapHeight = 600 * scale
-
-        // Calculate offsets to center the map
-        const offsetX = (containerWidth - mapWidth) / 2
-        const offsetY = (containerHeight - mapHeight) / 2
-
-        return {
-            left: (point[0] * scale) + offsetX,
-            top: (point[1] * scale) + offsetY
-        }
-    }
 
     if (isLoading) {
         return (
@@ -202,104 +117,62 @@ export default function Home() {
                     ))}
                 </div>
 
-                {/* Map Container */}
-                <Card
-                    ref={containerRef}
-                    className="relative w-full h-[600px] overflow-hidden shadow-xl bg-white"
-                >
-                    {mapUrl && (
-                        <img
-                            src={mapUrl}
-                            alt="Ski Map"
-                            className="absolute inset-0 w-full h-full object-contain"
-                        />
-                    )}
-                    <canvas
-                        ref={canvasRef}
-                        width={800}
-                        height={600}
-                        className="absolute inset-0 w-full h-full pointer-events-none"
-                        style={{
-                            objectFit: 'contain',
-                            imageRendering: 'crisp-edges'
-                        }}
-                    />
+                <Map
+                    lifts={lifts}
+                    selectedLift={selectedLift}
+                    mapUrl={mapUrl}
+                    statusColors={statusColors}
+                    typeIcons={typeIcons}
+                    difficultyColors={difficultyColors}
+                    onLiftSelect={setSelectedLift}
+                />
 
-                    {/* Lift Markers */}
-                    {lifts.map((lift) => {
-                        const path = typeof lift.path === 'string' ? JSON.parse(lift.path) : lift.path
-                        const lastPoint = path[path.length - 1]
-                        const position = calculatePosition(lastPoint)
-
-                        return (
-                            <HoverCard key={lift.id}>
-                                <HoverCardTrigger>
-                                    <div
-                                        className={`absolute cursor-pointer transition-all duration-300
-                                        ${selectedLift === lift.id ? 'scale-150 z-20' : 'scale-100 z-10'}`}
-                                        style={{
-                                            left: `${position.left}px`,
-                                            top: `${position.top}px`,
-                                            transform: 'translate(-50%, -50%)'
-                                        }}
-                                    >
-                                        <div className={`w-6 h-6 rounded-full ${statusColors[lift.status]} 
-                                            shadow-lg flex items-center justify-center
-                                            border-2 border-white`}>
-                                            <span className="text-xs">{typeIcons[lift.type]}</span>
-                                        </div>
-                                    </div>
-                                </HoverCardTrigger>
-                                <HoverCardContent className="w-64">
-                                    <div className="space-y-2">
-                                        <h4 className="font-semibold">{lift.name}</h4>
-                                        <div className="flex gap-2">
-                                            <Badge variant="secondary" className={statusColors[lift.status]}>
-                                                {lift.status.toUpperCase()}
-                                            </Badge>
-                                            <Badge variant="secondary" className={difficultyColors[lift.difficulty]}>
-                                                {lift.difficulty.toUpperCase()}
-                                            </Badge>
-                                        </div>
-                                        <p className="text-sm text-slate-600">
-                                            Wait time: {lift.waitTime} minutes
-                                        </p>
-                                    </div>
-                                </HoverCardContent>
-                            </HoverCard>
-                        )
-                    })}
-                </Card>
-
-                {/* Lift List */}
+                {/* Updated Lift List with HoverCard */}
                 <div className="grid gap-4">
                     <h2 className="text-2xl font-semibold text-slate-900">Lifts</h2>
                     <div className="grid gap-3">
                         {lifts.map((lift) => (
-                            <Button
-                                key={lift.id}
-                                variant={selectedLift === lift.id ? "default" : "outline"}
-                                onClick={() => setSelectedLift(lift.id)}
-                                className={`w-full p-6 justify-between group hover:shadow-md
-                  ${selectedLift === lift.id ? 'ring-2 ring-offset-2 ring-slate-900' : ''}
-                  transition-all duration-300`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xl">{typeIcons[lift.type]}</span>
-                                    <div className="flex flex-col items-start">
-                                        <span className="font-medium">{lift.name}</span>
-                                        <span className="text-sm text-slate-600">{lift.waitTime} min wait</span>
+                            <HoverCard key={lift.id}>
+                                <HoverCardTrigger asChild>
+                                    <Button
+                                        variant={selectedLift === lift.id ? "default" : "outline"}
+                                        onClick={() => setSelectedLift(lift.id)}
+                                        className={`w-full p-6 justify-between group hover:shadow-md
+                                            ${selectedLift === lift.id ? 'ring-2 ring-offset-2 ring-slate-900' : ''}
+                                            transition-all duration-300`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xl">{typeIcons[lift.type]}</span>
+                                            <div className="flex flex-col items-start">
+                                                <span className="font-medium">{lift.name}</span>
+                                                <span className="text-sm text-slate-600">{lift.waitTime} min wait</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Badge variant="secondary" className={difficultyColors[lift.difficulty]}>
+                                                {lift.difficulty}
+                                            </Badge>
+                                            <Badge variant="secondary" className={statusColors[lift.status]}>
+                                                {lift.status}
+                                            </Badge>
+                                        </div>
+                                    </Button>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-80">
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold">{lift.name}</h4>
+                                        <div className="text-sm text-slate-600 space-y-1">
+                                            <p>Type: {lift.type}</p>
+                                            <p>Status: {lift.status}</p>
+                                            <p>Wait Time: {lift.waitTime} minutes</p>
+                                            <p>Difficulty: {lift.difficulty}</p>
+                                            {lift.description && (
+                                                <p className="text-xs mt-2">{lift.description}</p>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Badge variant="secondary" className={difficultyColors[lift.difficulty]}>
-                                        {lift.difficulty}
-                                    </Badge>
-                                    <Badge variant="secondary" className={statusColors[lift.status]}>
-                                        {lift.status}
-                                    </Badge>
-                                </div>
-                            </Button>
+                                </HoverCardContent>
+                            </HoverCard>
                         ))}
                     </div>
                 </div>
