@@ -1,0 +1,5 @@
+# Root .gitignore - keeping only the essentials
+.DS_Store
+.env
+.vscode/
+.idea/
