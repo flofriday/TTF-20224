@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 from shapely.geometry import mapping
 import random
+from shapely.geometry import Polygon
 
 # Image dimensions
 IMG_WIDTH = 1600
@@ -23,14 +24,19 @@ class WayHandler(osmium.SimpleHandler):
     def __init__(self):
         super(WayHandler, self).__init__()
         self.lifts = []
-        self.pistes = []  # Add pistes list
-        self.nodes = {}  # Cache for node coordinates
+        self.pistes = []
+        self.water_bodies = []
+        self.nodes = {}
+        self.way_nodes = {}  # Add storage for way nodes
 
     def node(self, n):
         # Cache node coordinates
         self.nodes[n.id] = {"lat": n.location.lat, "lon": n.location.lon}
 
     def way(self, w):
+        # Store way nodes first
+        self.way_nodes[w.id] = [node.ref for node in w.nodes]
+
         if "aerialway" in w.tags:
             print(
                 f"Found aerialway: {w.tags.get('name', 'Unnamed')} - Type: {w.tags.get('aerialway')}"
@@ -97,6 +103,53 @@ class WayHandler(osmium.SimpleHandler):
                 print(f"Successfully added piste: {piste_data['name']}")
             except Exception as e:
                 print(f"Error processing piste: {str(e)}")
+
+        # Updated water body handling
+        if "natural" in w.tags and w.tags["natural"] == "water" or "water" in w.tags:
+            try:
+                coords = []
+                node_refs = self.way_nodes[w.id]
+
+                # Get coordinates for each node
+                for node_ref in node_refs:
+                    node = self.nodes.get(node_ref)
+                    if node:
+                        coords.append((node["lon"], node["lat"]))
+
+                if len(coords) < 3:  # Need at least 3 points for a polygon
+                    print(
+                        f"Warning: Not enough coordinates for water body {w.tags.get('name', 'Unnamed')}"
+                    )
+                    return
+
+                # Ensure the polygon is closed
+                if coords[0] != coords[-1]:
+                    coords.append(coords[0])
+
+                try:
+                    # Create polygon and validate it
+                    polygon = Polygon(coords)
+                    if not polygon.is_valid:
+                        print(
+                            f"Warning: Invalid polygon for water body {w.tags.get('name', 'Unnamed')}"
+                        )
+                        return
+
+                    water_data = {
+                        "name": w.tags.get("name", "Unnamed Water Body"),
+                        "type": w.tags.get(
+                            "natural",
+                            w.tags.get("water", w.tags.get("waterway", "unknown")),
+                        ),
+                        "geometry": polygon,
+                    }
+                    self.water_bodies.append(water_data)
+                    print(f"Successfully added water body: {water_data['name']}")
+                except Exception as e:
+                    print(f"Error creating polygon: {str(e)}")
+
+            except Exception as e:
+                print(f"Error processing water body: {str(e)}")
 
 
 def get_elevation_data(bounds):
@@ -239,19 +292,28 @@ def extract_ski_lifts(area_name):
         bbox[3] + (lat_range * padding),  # max_lat
     ]
 
+    # Update the query to explicitly fetch all nodes for ways
     query = f"""
-    [out:json][timeout:25];
+    [out:json][timeout:60];
+    area[name="{area_name}"]->.searchArea;
     (
-        way["aerialway"]({bounds[1]},{bounds[0]},{bounds[3]},{bounds[2]});
-        way["piste:type"]({bounds[1]},{bounds[0]},{bounds[3]},{bounds[2]});
-        >;
+        way["aerialway"](area.searchArea);
+        way["piste:type"](area.searchArea);
+        way["natural"="water"](area.searchArea);
+        way["water"](area.searchArea);
     );
+    (._;>;);  // This fetches all nodes for the ways
     out body;
     """
 
+    # Increase timeout and add error handling
     api = "https://overpass-api.de/api/interpreter"
-    print(f"Overpass Query: {query}")
-    response = requests.get(api, params={"data": query})
+    try:
+        response = requests.post(api, data={"data": query}, timeout=60)
+    except requests.exceptions.Timeout:
+        print("Trying alternative Overpass API endpoint...")
+        api = "https://overpass.kumi.systems/api/interpreter"
+        response = requests.post(api, data={"data": query}, timeout=60)
 
     print(f"Number of elements returned: {len(response.json().get('elements', []))}")
     print(f"Raw Response: {response.text[:500]}...")
@@ -315,6 +377,59 @@ def extract_ski_lifts(area_name):
     X, Y = np.meshgrid(x, y)
 
     plot_contours(ax, X, Y, elevations, bounds)
+
+    # Updated water body plotting
+    for water in handler.water_bodies:
+        try:
+            if not water["geometry"].is_valid:
+                print(f"Skipping invalid water body: {water['name']}")
+                continue
+
+            # Extract exterior coordinates of the polygon
+            exterior_coords = list(water["geometry"].exterior.coords)
+            pixel_coords = [
+                transform_coords(lon, lat, bounds, IMG_WIDTH, IMG_HEIGHT)
+                for lon, lat in exterior_coords
+            ]
+
+            if len(pixel_coords) < 3:
+                continue
+
+            x_pixels, y_pixels = zip(*pixel_coords)
+
+            # Create a polygon patch
+            polygon_patch = plt.Polygon(
+                list(zip(x_pixels, y_pixels)),
+                facecolor="lightblue",
+                edgecolor="lightblue",
+                alpha=0.3,
+                linewidth=1,
+            )
+            ax.add_patch(polygon_patch)
+
+            # Handle interior rings (holes)
+            for interior in water["geometry"].interiors:
+                interior_coords = list(interior.coords)
+                interior_pixels = [
+                    transform_coords(lon, lat, bounds, IMG_WIDTH, IMG_HEIGHT)
+                    for lon, lat in interior_coords
+                ]
+                if len(interior_pixels) < 3:
+                    continue
+
+                ix_pixels, iy_pixels = zip(*interior_pixels)
+                hole_patch = plt.Polygon(
+                    list(zip(ix_pixels, iy_pixels)),
+                    facecolor="white",
+                    edgecolor="lightblue",
+                    alpha=1.0,
+                    linewidth=1,
+                )
+                ax.add_patch(hole_patch)
+
+        except Exception as e:
+            print(f"Error plotting water body {water.get('name', 'unnamed')}: {str(e)}")
+            continue
 
     # Plot pistes first (so they appear under the lifts)
     for piste in handler.pistes:

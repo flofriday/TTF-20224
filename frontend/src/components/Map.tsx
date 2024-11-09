@@ -141,53 +141,6 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
                 ref={canvasRef}
                 className="absolute inset-0 pointer-events-none"
             />
-
-
-            {/* Lift Markers */}
-            {lifts.map((lift) => {
-                const path = typeof lift.path === 'string' ? JSON.parse(lift.path) : lift.path
-                const lastPoint = path[path.length - 1]
-                const position = calculatePosition(lastPoint)
-
-                return (
-                    <HoverCard key={lift.id}>
-                        <HoverCardTrigger>
-                            <div
-                                className={`absolute cursor-pointer transition-all duration-300
-                                ${selectedLift === lift.id ? 'scale-125 z-20' : 'scale-100 z-10'}`}
-                                style={{
-                                    left: `${position.left}px`,
-                                    top: `${position.top}px`,
-                                    transform: 'translate(-50%, -50%)'
-                                }}
-                                onClick={() => onLiftSelect?.(lift.id)}
-                            >
-                                <div className={`w-4 h-4 rounded-full ${statusColors[lift.status].split(' ')[0]} 
-                                    shadow-lg flex items-center justify-center
-                                    border-2 border-white`}>
-                                    <span className="text-[10px]">{typeIcons[lift.type]}</span>
-                                </div>
-                            </div>
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-64">
-                            <div className="space-y-2">
-                                <h4 className="font-semibold">{lift.name}</h4>
-                                <div className="flex gap-2">
-                                    <Badge variant="secondary" className={statusColors[lift.status]}>
-                                        {lift.status.toUpperCase()}
-                                    </Badge>
-                                    <Badge variant="secondary" className={difficultyColors[lift.difficulty]}>
-                                        {lift.difficulty.toUpperCase()}
-                                    </Badge>
-                                </div>
-                                <p className="text-sm text-slate-600">
-                                    Wait time: {lift.wait_time} minutes
-                                </p>
-                            </div>
-                        </HoverCardContent>
-                    </HoverCard>
-                )
-            })}
         </Card>
     )
 }

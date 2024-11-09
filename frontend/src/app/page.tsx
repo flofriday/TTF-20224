@@ -149,46 +149,48 @@ export default function Home() {
                 <div className="grid gap-4">
                     <h2 className="text-2xl font-semibold text-slate-900">Lifts</h2>
                     <div className="grid gap-3">
-                        {lifts.map((lift) => (
-                            <HoverCard key={lift.id}>
-                                <HoverCardTrigger asChild>
-                                    <div
-                                        onClick={() => setSelectedLift(lift.id)}
-                                        className={`p-4 rounded-lg w-full justify-between group hover:shadow-md border-2 b
+                        {lifts
+                            .sort((a, b) => a.wait_time - b.wait_time)
+                            .map((lift) => (
+                                <HoverCard key={lift.id}>
+                                    <HoverCardTrigger asChild>
+                                        <div
+                                            onClick={() => setSelectedLift(lift.id)}
+                                            className={`p-4 rounded-lg w-full justify-between group hover:shadow-md border-2 b
                                             ${selectedLift === lift.id ? 'bg-gray-200 border-slate-700' : ''}
                                             transition-all duration-300`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-xl">{typeIcons[lift.type]}</span>
-                                            <div className="flex flex-col items-start">
-                                                <span className="font-medium">{lift.name}</span>
-                                                <span className="text-sm text-slate-600">Estimated wait time: {lift.wait_time} min</span>
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xl">{typeIcons[lift.type]}</span>
+                                                <div className="flex flex-col items-start">
+                                                    <span className="font-medium">{lift.name}</span>
+                                                    <span className="text-sm text-slate-600">Estimated wait time: {lift.wait_time} min</span>
+                                                </div>
+                                            </div>
+                                            <div className="pt-2 flex gap-1 items-center">
+
+                                                <Badge variant="secondary" className={`rounded-full ${statusColors[lift.status]}`}>
+                                                    {lift.status}
+                                                </Badge>
                                             </div>
                                         </div>
-                                        <div className="pt-2 flex gap-1 items-center">
-
-                                            <Badge variant="secondary" className={`rounded-full ${statusColors[lift.status]}`}>
-                                                {lift.status}
-                                            </Badge>
+                                    </HoverCardTrigger>
+                                    <HoverCardContent className="w-80">
+                                        <div className="space-y-2">
+                                            <h4 className="text-sm font-semibold">{lift.name}</h4>
+                                            <div className="text-sm text-slate-600 space-y-1">
+                                                <p>Type: {lift.type}</p>
+                                                <p>Status: {lift.status}</p>
+                                                <p>Wait Time: {lift.wait_time} minutes</p>
+                                                <p>Difficulty: {lift.difficulty}</p>
+                                                {lift.description && (
+                                                    <p className="text-xs mt-2">{lift.description}</p>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                </HoverCardTrigger>
-                                <HoverCardContent className="w-80">
-                                    <div className="space-y-2">
-                                        <h4 className="text-sm font-semibold">{lift.name}</h4>
-                                        <div className="text-sm text-slate-600 space-y-1">
-                                            <p>Type: {lift.type}</p>
-                                            <p>Status: {lift.status}</p>
-                                            <p>Wait Time: {lift.wait_time} minutes</p>
-                                            <p>Difficulty: {lift.difficulty}</p>
-                                            {lift.description && (
-                                                <p className="text-xs mt-2">{lift.description}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </HoverCardContent>
-                            </HoverCard>
-                        ))}
+                                    </HoverCardContent>
+                                </HoverCard>
+                            ))}
                     </div>
                 </div>
             </main>
