@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Tuple
+from typing import List
 
 
 class SkiLiftBase(BaseModel):

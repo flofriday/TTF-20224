@@ -57,3 +57,6 @@ htmlcov/
 
 # SQLite
 *.db
+
+# YOLO
+models/
