@@ -1,5 +1,6 @@
 import sys
 import os
+import json
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -13,28 +14,30 @@ def seed_data():
 
     example_lifts = [
         {
-            "name": "Alpenpanorama Express",
+            "name": "Blue Mountain Express",
             "capacity": 2400,
             "current_load": 1200,
-            "description": "6er Sessellift mit Wetterschutzhaube",
-            "image_url": "https://example.com/alpenpanorama.jpg",
-            "webcam_url": "https://example.com/webcam/alpenpanorama",
+            "description": "High-speed express lift",
+            "image_url": "https://example.com/blue-mountain.jpg",
+            "webcam_url": "https://example.com/webcam/blue-mountain",
+            "status": "open",
+            "type": "express",
+            "difficulty": "intermediate",
+            "path": json.dumps([[120, 150], [180, 80], [250, 50]]),
+            "wait_time": 5,
         },
         {
-            "name": "Gipfelblick Bahn",
+            "name": "Summit Quad",
             "capacity": 1800,
             "current_load": 900,
-            "description": "4er Sessellift mit Förderband",
-            "image_url": "https://example.com/gipfelblick.jpg",
-            "webcam_url": "https://example.com/webcam/gipfelblick",
-        },
-        {
-            "name": "Talabfahrt Gondel",
-            "capacity": 3000,
-            "current_load": 1500,
-            "description": "10er Gondelbahn mit WLAN",
-            "image_url": "https://example.com/talabfahrt.jpg",
-            "webcam_url": "https://example.com/webcam/talabfahrt",
+            "description": "Quad lift to the summit",
+            "image_url": "https://example.com/summit.jpg",
+            "webcam_url": "https://example.com/webcam/summit",
+            "status": "open",
+            "type": "quad",
+            "difficulty": "advanced",
+            "path": json.dumps([[250, 200], [300, 150], [350, 100]]),
+            "wait_time": 12,
         },
     ]
 

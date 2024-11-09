@@ -1,50 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
-
-interface Lift {
-    id: string
-    name: string
-    status: 'open' | 'closed' | 'hold'
-    type: 'express' | 'quad' | 'magic-carpet'
-    difficulty: 'beginner' | 'intermediate' | 'advanced'
-    path: [number, number][]
-    waitTime: number
-}
-
-const lifts: Lift[] = [
-    {
-        id: '1',
-        name: 'Blue Mountain Express',
-        status: 'open',
-        type: 'express',
-        difficulty: 'intermediate',
-        path: [[120, 150], [180, 80], [250, 50]],
-        waitTime: 5
-    },
-    {
-        id: '2',
-        name: 'Summit Quad',
-        status: 'open',
-        type: 'quad',
-        difficulty: 'advanced',
-        path: [[250, 200], [300, 150], [350, 100]],
-        waitTime: 12
-    },
-    {
-        id: '3',
-        name: 'Beginner Magic Carpet',
-        status: 'hold',
-        type: 'magic-carpet',
-        difficulty: 'beginner',
-        path: [[180, 300], [180, 250]],
-        waitTime: 3
-    },
-]
+import { getLifts } from '@/lib/api'
+import { Lift } from '@/types/lift'
+import { drawLiftLine } from '@/lib/utils'
 
 const statusColors = {
     open: 'bg-emerald-500 text-white',
@@ -52,23 +15,68 @@ const statusColors = {
     hold: 'bg-amber-500 text-white'
 }
 
-const difficultyColors = {
-    beginner: 'bg-green-100 text-green-800',
-    intermediate: 'bg-blue-100 text-blue-800',
-    advanced: 'bg-black text-white'
+const typeIcons = {
+    'express': '⚡',  // Express lift
+    'quad': '4️⃣',    // Quad lift
+    'magic-carpet': '🔮', // Magic carpet
 }
 
-const typeIcons = {
-    express: '🚡',
-    quad: '🚠',
-    'magic-carpet': '✨'
+const difficultyColors = {
+    'beginner': 'bg-green-500 text-white',
+    'intermediate': 'bg-blue-500 text-white',
+    'advanced': 'bg-black text-white'
 }
 
 export default function Home() {
     const [selectedLift, setSelectedLift] = useState<string | null>(null)
+    const [lifts, setLifts] = useState<Lift[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
 
-    const drawLiftLine = (points: [number, number][]) => {
-        return `M ${points.map(point => point.join(' ')).join(' L ')}`
+    useEffect(() => {
+        const fetchLifts = async () => {
+            try {
+                setIsLoading(true)
+                const data = await getLifts()
+                setLifts(data)
+                setError(null)
+            } catch (err) {
+                console.error('Failed to fetch lifts:', err)
+                setError('Failed to load lift data')
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        fetchLifts()
+        // Set up auto-refresh every 5 seconds
+        const interval = setInterval(fetchLifts, 5000)
+
+        return () => clearInterval(interval)
+    }, [])
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+                <main className="container mx-auto p-6 space-y-8 max-w-5xl">
+                    <Card className="p-8">
+                        <p className="text-center text-slate-600">Loading lift data...</p>
+                    </Card>
+                </main>
+            </div>
+        )
+    }
+
+    if (error) {
+        return (
+            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+                <main className="container mx-auto p-6 space-y-8 max-w-5xl">
+                    <Card className="p-8">
+                        <p className="text-center text-red-600">{error}</p>
+                    </Card>
+                </main>
+            </div>
+        )
     }
 
     return (

@@ -14,3 +14,8 @@ class SkiLift(Base):
     description = Column(String)
     image_url = Column(String)
     webcam_url = Column(String)
+    status = Column(String)  # 'open', 'closed', 'hold'
+    type = Column(String)  # 'express', 'quad', 'magic-carpet'
+    difficulty = Column(String)  # 'beginner', 'intermediate', 'advanced'
+    path = Column(String)  # JSON string of coordinates
+    wait_time = Column(Integer)
