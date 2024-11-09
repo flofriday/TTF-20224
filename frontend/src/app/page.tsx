@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { getLifts } from '@/lib/api'
 import { Lift } from '@/types/lift'
-import { drawLiftLine } from '@/lib/utils'
+import { drawLiftLine, drawContourLines } from '@/lib/utils'
 
 const statusColors = {
     open: 'bg-emerald-500 text-white',
@@ -46,7 +46,10 @@ export default function Home() {
         // Clear the canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-        // Draw each lift line
+        // Draw contour lines first
+        drawContourLines(ctx)
+
+        // Draw lift lines on top
         lifts.forEach((lift) => {
             drawLiftLine(
                 ctx,
@@ -146,14 +149,11 @@ export default function Home() {
                 {/* Map Container */}
                 <Card 
                     ref={containerRef}
-                    className="relative w-full h-[600px] overflow-hidden shadow-xl"
+                    className="relative w-full h-[600px] overflow-hidden shadow-xl bg-white"
                 >
-                    <div className="absolute inset-0 bg-slate-200/50" />
                     <canvas
                         ref={canvasRef}
                         className="absolute inset-0 w-full h-full pointer-events-none"
-                        width={600}
-                        height={600}
                     />
 
                     {/* Lift Markers */}
