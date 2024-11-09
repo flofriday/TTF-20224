@@ -17,6 +17,8 @@ export function drawLiftLine(
   ctx.beginPath()
   ctx.strokeStyle = color
   ctx.lineWidth = lineWidth
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
 
   // Start from the first point
   ctx.moveTo(path[0][0], path[0][1])
