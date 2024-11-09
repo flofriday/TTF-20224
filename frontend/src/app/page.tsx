@@ -154,6 +154,7 @@ export default function Home() {
                     <canvas
                         ref={canvasRef}
                         className="absolute inset-0 w-full h-full pointer-events-none"
+                        width='1000px' height='1000px'
                     />
 
                     {/* Lift Markers */}
