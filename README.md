@@ -16,12 +16,14 @@ python scripts/seed_data.py
 uvicorn app.main:app --reload
 ```
 
-And the frontend with:
+In another terminal start the frontend with:
 
 ```bash
 npm install
 npm run dev
 ```
+
+With that the frontend should be running on http://localhost:3000 and the backend on http://localhost:8000.
 
 ## Run with docker compose 
 
@@ -31,6 +33,11 @@ docker compose up
 
 ## Contributing
 
+Contributions are quite welcome, you are awesome 😊✨
+
+We don't have a strict code style but instead 
+heavily rely on automation and what ever the tool produces is _correct_.
+
 For python code we use [ruff](https://github.com/astral-sh/ruff) or 
 [black](https://github.com/psf/black) (both compatible) to format the code and
-for typescript we use [prettier](https://prettier.io/).
+for Typescript, HTML and CSS we use [prettier](https://prettier.io/).
