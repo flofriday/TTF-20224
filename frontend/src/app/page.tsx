@@ -10,12 +10,13 @@ import { Lift } from '@/types/lift'
 import { drawLiftLine } from '@/lib/utils'
 import { Map } from '@/components/Map'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { useTheme } from 'next-themes'
 
 const typeIcons = {
     'express': '⚡',        // Express lift
     'quad': '4️⃣',          // Quad lift
     'chair_lift': '🪑',         // Chair lift
-    'mixed_lift': '🪑+🚡',    // Mixed lift (usually gondola + chair)
+    'mixed_lift': '🚠',    // Mixed lift (usually gondola + chair)
     'gondola': '🚡',       // Gondola
     't-bar': '⊤',         // T-bar
     'platter': '🍽️',       // Platter/button lift
@@ -34,8 +35,7 @@ const difficultyColors = {
 
 const statusColors = {
     open: 'bg-teal-600 text-white',
-    closed: 'bg-red-500 text-white',
-    hold: 'bg-amber-500 text-white'
+    closed: 'bg-slate-500 text-white'
 }
 
 export default function Home() {
@@ -44,6 +44,7 @@ export default function Home() {
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [mapUrl, setMapUrl] = useState<string | null>(null)
+    const { theme } = useTheme()
 
     useEffect(() => {
         const fetchLifts = async () => {
@@ -121,27 +122,30 @@ export default function Home() {
                     <p className="text-slate-600 dark:text-slate-400">Find unused slopes</p>
                 </div>
 
-                {/* Status Legend */}
-                <div className="flex gap-4 flex-wrap">
-                    {Object.entries(statusColors).map(([status, color]) => (
-                        <div key={status} className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full ${color.split(' ')[0]}`} />
-                            <span className="capitalize text-sm text-slate-600">{status}</span>
-                        </div>
-                    ))}
+                <div className="space-y-2">
+                    <Map
+                        lifts={lifts}
+                        selectedLift={selectedLift}
+                        mapUrl={mapUrl}
+                        statusColors={statusColors}
+                        typeIcons={typeIcons}
+                        difficultyColors={difficultyColors}
+                        onLiftSelect={setSelectedLift}
+                        isDarkMode={theme === 'dark'}
+                    />
+
+                    {/* Status Legend */}
+                    <div className="flex gap-6 justify-center flex-wrap py-2">
+                        {Object.entries(statusColors).map(([status, color]) => (
+                            <div key={status} className="flex items-center gap-2">
+                                <div className={`w-3 h-3 rounded-full ${color.split(' ')[0]}`} />
+                                <span className="capitalize text-sm text-slate-600 dark:text-slate-400">{status}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
-                <Map
-                    lifts={lifts}
-                    selectedLift={selectedLift}
-                    mapUrl={mapUrl}
-                    statusColors={statusColors}
-                    typeIcons={typeIcons}
-                    difficultyColors={difficultyColors}
-                    onLiftSelect={setSelectedLift}
-                />
-
-                {/* Updated Lift List with HoverCard */}
+                {/* Lift List */}
                 <div className="grid gap-4">
                     <h2 className="text-2xl font-semibold text-slate-900">Lifts</h2>
                     <div className="grid gap-3">
@@ -162,9 +166,7 @@ export default function Home() {
                                             </div>
                                         </div>
                                         <div className="pt-2 flex gap-1 items-center">
-                                            <Badge variant="secondary" className={`rounded-full ${difficultyColors[lift.difficulty]}`}>
-                                                {lift.difficulty}
-                                            </Badge>
+
                                             <Badge variant="secondary" className={`rounded-full ${statusColors[lift.status]}`}>
                                                 {lift.status}
                                             </Badge>

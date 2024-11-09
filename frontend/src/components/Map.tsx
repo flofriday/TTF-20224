@@ -15,13 +15,14 @@ interface MapProps {
     typeIcons: Record<string, string>
     difficultyColors: Record<string, string>
     onLiftSelect?: (liftId: string) => void
+    isDarkMode?: boolean
 }
 
 // Add constants for the base image dimensions
 const BASE_WIDTH = 1600
 const BASE_HEIGHT = 1200
 
-export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, difficultyColors, onLiftSelect }: MapProps) {
+export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, difficultyColors, onLiftSelect, isDarkMode }: MapProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -41,15 +42,21 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
         canvas.width = rect.width
         canvas.height = rect.height
 
-        // Clear the canvas
+        // Make canvas transparent instead of filling with a background color
         ctx.clearRect(0, 0, canvas.width, canvas.height)
 
         // Calculate scale factors based on current dimensions
         const scaleX = canvas.width / BASE_WIDTH
         const scaleY = canvas.height / BASE_HEIGHT
 
-        // Draw each lift line
-        lifts.forEach(lift => {
+        // Color mapping from Tailwind classes to hex colors
+        const colorMap: Record<string, string> = {
+            'bg-teal-600': isDarkMode ? '2DD4BF' : '0D9488',    // teal for operating
+            'bg-slate-500': isDarkMode ? '94A3B8' : '64748B',   // grey for closed
+        }
+
+        // Draw each lift line, excluding stations
+        lifts.filter(lift => lift.type !== 'station').forEach(lift => {
             const path = typeof lift.path === 'string' ? JSON.parse(lift.path) : lift.path
             const isSelected = selectedLift === lift.id
 
@@ -59,13 +66,22 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
                 point[1] * scaleY
             ])
 
-            // Get status color without the text color class
-            const statusColor = statusColors[lift.status].split(' ')[0]
-            const color = statusColor.replace('bg-', '')
+            // Set line properties
+            ctx.lineCap = 'round'
+            ctx.lineJoin = 'round'
 
-            drawLiftLine(ctx, scaledPath, color, isSelected, isSelected ? 2 : 1) // Adjust line width based on selection
+            // Get the base status color class
+            const statusColorClass = statusColors[lift.status].split(' ')[0]
+            const lineColor = colorMap[statusColorClass] || (isDarkMode ? 'FFFFFF' : '000000')
+
+            const lineWidth = isSelected ? 2 : 1
+            const lineOpacity = isSelected ? 1 : 0.7
+
+            ctx.globalAlpha = lineOpacity
+            drawLiftLine(ctx, scaledPath, lineColor, isSelected, lineWidth, isDarkMode)
+            ctx.globalAlpha = 1
         })
-    }, [lifts, selectedLift, statusColors])
+    }, [lifts, selectedLift, isDarkMode, statusColors])
 
     // Function to update canvas size
     const updateCanvasSize = useCallback(() => {
@@ -109,13 +125,15 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
     return (
         <Card
             ref={containerRef}
-            className="relative w-full aspect-[4/3] overflow-hidden shadow-xl bg-white"
+            className={`relative w-full aspect-[4/3] overflow-hidden shadow-xl
+                ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}
         >
             {mapUrl && (
                 <img
                     src={mapUrl}
                     alt="Ski Map"
-                    className="absolute inset-0 w-full h-full object-contain"
+                    className={`absolute inset-0 w-full h-full object-contain transition-all duration-300
+                        ${isDarkMode ? 'invert brightness-[.85] hue-rotate-180' : ''}`}
                     onLoad={updateCanvasSize}
                 />
             )}
@@ -124,51 +142,7 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
                 className="absolute inset-0 pointer-events-none"
             />
 
-            {/* Lift Markers */}
-            {lifts.map((lift) => {
-                const path = typeof lift.path === 'string' ? JSON.parse(lift.path) : lift.path
-                const lastPoint = path[path.length - 1]
-                const position = calculatePosition(lastPoint)
 
-                return (
-                    <HoverCard key={lift.id}>
-                        <HoverCardTrigger>
-                            <div
-                                className={`absolute cursor-pointer transition-all duration-300
-                                ${selectedLift === lift.id ? 'scale-125 z-20' : 'scale-100 z-10'}`}
-                                style={{
-                                    left: `${position.left}px`,
-                                    top: `${position.top}px`,
-                                    transform: 'translate(-50%, -50%)'
-                                }}
-                                onClick={() => onLiftSelect?.(lift.id)}
-                            >
-                                <div className={`w-4 h-4 rounded-full ${statusColors[lift.status].split(' ')[0]} 
-                                    shadow-lg flex items-center justify-center
-                                    border-2 border-white`}>
-                                    <span className="text-[10px]">{typeIcons[lift.type]}</span>
-                                </div>
-                            </div>
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-64">
-                            <div className="space-y-2">
-                                <h4 className="font-semibold">{lift.name}</h4>
-                                <div className="flex gap-2">
-                                    <Badge variant="secondary" className={statusColors[lift.status]}>
-                                        {lift.status.toUpperCase()}
-                                    </Badge>
-                                    <Badge variant="secondary" className={difficultyColors[lift.difficulty]}>
-                                        {lift.difficulty.toUpperCase()}
-                                    </Badge>
-                                </div>
-                                <p className="text-sm text-slate-600">
-                                    Wait time: {lift.waitTime} minutes
-                                </p>
-                            </div>
-                        </HoverCardContent>
-                    </HoverCard>
-                )
-            })}
         </Card>
     )
 }

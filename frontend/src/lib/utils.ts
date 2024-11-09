@@ -10,15 +10,20 @@ export function drawLiftLine(
   path: number[][],
   color: string,
   isSelected: boolean = false,
-  lineWidth: number = 1
+  lineWidth: number = 1,
+  isDarkMode: boolean = false
 ) {
   if (!path || path.length < 2) return
 
   ctx.save()
 
+  // Adjust color opacity based on dark mode
+  const baseOpacity = isDarkMode ? 'cc' : '88' // More visible in dark mode
+  const glowOpacity = isDarkMode ? '44' : '33'
+
   // Set line style
-  ctx.strokeStyle = isSelected ? `#${color}` : `#${color}88` // Add transparency for non-selected
-  ctx.lineWidth = isSelected ? lineWidth * 1.5 : lineWidth // Reduced from 2x to 1.5x for selected
+  ctx.strokeStyle = isSelected ? `#${color}` : `#${color}${baseOpacity}`
+  ctx.lineWidth = isSelected ? lineWidth * 2.5 : lineWidth * 2.5
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
 
@@ -36,8 +41,8 @@ export function drawLiftLine(
 
   // If selected, add a glow effect
   if (isSelected) {
-    ctx.strokeStyle = `#${color}33` // Very transparent
-    ctx.lineWidth = lineWidth * 4 // Reduced from 6x to 4x
+    ctx.strokeStyle = `#${color}${glowOpacity}`
+    ctx.lineWidth = lineWidth * 4
     ctx.stroke()
   }
 

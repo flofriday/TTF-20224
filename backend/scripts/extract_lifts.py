@@ -23,6 +23,7 @@ class WayHandler(osmium.SimpleHandler):
     def __init__(self):
         super(WayHandler, self).__init__()
         self.lifts = []
+        self.pistes = []  # Add pistes list
         self.nodes = {}  # Cache for node coordinates
 
     def node(self, n):
@@ -66,6 +67,36 @@ class WayHandler(osmium.SimpleHandler):
             except Exception as e:
                 print(f"Error processing lift: {str(e)}")
                 print(f"Node refs: {[node.ref for node in w.nodes]}")
+
+        # Add piste handling
+        if "piste:type" in w.tags:
+            try:
+                coords = []
+                for node_ref in w.nodes:
+                    node = self.nodes.get(node_ref.ref)
+                    if node:
+                        coords.append((node["lon"], node["lat"]))
+                    else:
+                        print(f"Warning: Missing node {node_ref.ref}")
+
+                if len(coords) < 2:
+                    print(
+                        f"Warning: Not enough coordinates for piste {w.tags.get('name', 'Unnamed')}"
+                    )
+                    return
+
+                line = LineString(coords)
+
+                piste_data = {
+                    "name": w.tags.get("name", "Unnamed Piste"),
+                    "type": w.tags.get("piste:type", "downhill"),
+                    "difficulty": w.tags.get("piste:difficulty", "intermediate"),
+                    "geometry": line,
+                }
+                self.pistes.append(piste_data)
+                print(f"Successfully added piste: {piste_data['name']}")
+            except Exception as e:
+                print(f"Error processing piste: {str(e)}")
 
 
 def get_elevation_data(bounds):
@@ -212,6 +243,7 @@ def extract_ski_lifts(area_name):
     [out:json][timeout:25];
     (
         way["aerialway"]({bounds[1]},{bounds[0]},{bounds[3]},{bounds[2]});
+        way["piste:type"]({bounds[1]},{bounds[0]},{bounds[3]},{bounds[2]});
         >;
     );
     out body;
@@ -284,6 +316,28 @@ def extract_ski_lifts(area_name):
 
     plot_contours(ax, X, Y, elevations, bounds)
 
+    # Plot pistes first (so they appear under the lifts)
+    for piste in handler.pistes:
+        coords = list(piste["geometry"].coords)
+        pixel_coords = [
+            transform_coords(lon, lat, bounds, IMG_WIDTH, IMG_HEIGHT)
+            for lon, lat in coords
+        ]
+        x_pixels, y_pixels = zip(*pixel_coords)
+
+        # Color based on difficulty
+        color_map = {
+            "novice": "green",
+            "easy": "blue",
+            "intermediate": "red",
+            "advanced": "black",
+            "expert": "black",
+        }
+        color = color_map.get(piste["difficulty"], "blue")
+
+        ax.plot(x_pixels, y_pixels, color=color, linewidth=1, alpha=0.7)
+
+    # Plot lifts
     for idx, row in gdf.iterrows():
         coords = list(row.geometry.coords)
         pixel_coords = [
@@ -291,7 +345,7 @@ def extract_ski_lifts(area_name):
             for lon, lat in coords
         ]
         x_pixels, y_pixels = zip(*pixel_coords)
-        # ax.plot(x_pixels, y_pixels, color="blue", linewidth=2)
+        ax.plot(x_pixels, y_pixels, color="darkred", linewidth=2)
 
     plt.savefig(
         "data/ski_map.png",
@@ -339,7 +393,7 @@ if __name__ == "__main__":
             lift_dict["wait_time"] = random.randint(0, 10)
             lift_dict["image_url"] = ""
             lift_dict["webcam_url"] = ""
-            lift_dict["status"] = random.choice(["open", "closed", "hold"])
+            lift_dict["status"] = random.choice(["open", "closed"])
             lift_dict["difficulty"] = lift_data["difficulty"]
             lift_dict["type"] = lift_data["type"]
             lift_dict["capacity"] = lift_data["capacity"]
