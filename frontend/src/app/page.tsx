@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +32,34 @@ export default function Home() {
     const [lifts, setLifts] = useState<Lift[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const canvasRef = useRef<HTMLCanvasElement>(null)
+
+    // Function to draw all lift lines
+    const drawLifts = () => {
+        const canvas = canvasRef.current
+        if (!canvas) return
+        
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return
+
+        // Clear the canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+        // Draw each lift line
+        lifts.forEach((lift) => {
+            drawLiftLine(
+                ctx,
+                lift.path,
+                selectedLift === lift.id ? '#0f172a' : '#64748b',
+                selectedLift === lift.id ? 4 : 2
+            )
+        })
+    }
+
+    // Effect to redraw canvas when selected lift or lifts change
+    useEffect(() => {
+        drawLifts()
+    }, [selectedLift, lifts])
 
     useEffect(() => {
         const fetchLifts = async () => {
@@ -49,10 +77,6 @@ export default function Home() {
         }
 
         fetchLifts()
-        // Set up auto-refresh every 5 seconds
-        const interval = setInterval(fetchLifts, 5000)
-
-        return () => clearInterval(interval)
     }, [])
 
     if (isLoading) {
@@ -99,22 +123,13 @@ export default function Home() {
 
                 {/* Map Container */}
                 <Card className="relative w-full h-[600px] overflow-hidden shadow-xl">
-                    <div className="absolute inset-0 bg-slate-200/50" /> {/* Placeholder for map */}
-
-                    {/* SVG Layer for Lift Lines */}
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                        {lifts.map((lift) => (
-                            <path
-                                key={lift.id}
-                                d={drawLiftLine(lift.path)}
-                                stroke={selectedLift === lift.id ? '#0f172a' : '#64748b'}
-                                strokeWidth={selectedLift === lift.id ? 4 : 2}
-                                fill="none"
-                                className="transition-all duration-300"
-                                strokeDasharray={lift.status === 'closed' ? '5,5' : 'none'}
-                            />
-                        ))}
-                    </svg>
+                    <div className="absolute inset-0 bg-slate-200/50" />
+                    <canvas
+                        ref={canvasRef}
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        width={600}
+                        height={600}
+                    />
 
                     {/* Lift Markers */}
                     {lifts.map((lift) => (
@@ -122,15 +137,15 @@ export default function Home() {
                             <HoverCardTrigger>
                                 <div
                                     className={`absolute cursor-pointer transition-all duration-300
-                    ${selectedLift === lift.id ? 'scale-150 z-20' : 'scale-100 z-10'}`}
+                                    ${selectedLift === lift.id ? 'scale-150 z-20' : 'scale-100 z-10'}`}
                                     style={{
                                         left: lift.path[0][0],
                                         top: lift.path[0][1],
                                     }}
                                 >
                                     <div className={`w-6 h-6 rounded-full ${statusColors[lift.status]} 
-                    shadow-lg flex items-center justify-center
-                    border-2 border-white transform -translate-x-1/2 -translate-y-1/2`}>
+                                        shadow-lg flex items-center justify-center
+                                        border-2 border-white transform -translate-x-1/2 -translate-y-1/2`}>
                                         <span className="text-xs">{typeIcons[lift.type]}</span>
                                     </div>
                                 </div>

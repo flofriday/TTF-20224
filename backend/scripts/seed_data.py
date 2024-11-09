@@ -36,7 +36,7 @@ def seed_data():
             "status": "open",
             "type": "quad",
             "difficulty": "advanced",
-            "path": json.dumps([[250, 200], [300, 150], [350, 100]]),
+            "path": json.dumps([[250, 200], [250, 150], [350, 100]]),
             "wait_time": 12,
         },
     ]
