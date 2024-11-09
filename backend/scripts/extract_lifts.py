@@ -113,18 +113,43 @@ def get_elevation_data(bounds):
 
 def plot_contours(ax, X, Y, elevations):
     """Plot elevation contours on the given axes"""
-    # Plot contour lines with no labels
-    contours = ax.contour(
+    # Calculate the elevation range
+    elev_min = np.min(elevations)
+    elev_max = np.max(elevations)
+
+    # Create more levels with smaller intervals
+    # Calculate a good interval (roughly 20m between contour lines)
+    interval = 20
+    levels = np.arange(
+        np.floor(elev_min / interval) * interval,
+        np.ceil(elev_max / interval) * interval,
+        interval,
+    )
+
+    # Plot major contours (every 100m) with darker lines
+    major_levels = np.arange(
+        np.floor(elev_min / 100) * 100, np.ceil(elev_max / 100) * 100, 100
+    )
+    ax.contour(
         X,
         Y,
         elevations,
-        levels=15,
+        levels=major_levels,
+        colors="darkgray",
+        alpha=0.7,
+        linewidths=1.0,
+    )
+
+    # Plot minor contours with lighter lines
+    ax.contour(
+        X,
+        Y,
+        elevations,
+        levels=levels,
         colors="gray",
-        alpha=0.5,
+        alpha=0.3,
         linewidths=0.5,
     )
-    # Remove contour labels
-    # ax.clabel(contours, inline=True, fontsize=8, fmt="%1.0f")  # Comment out or remove this line
 
 
 def transform_coords(lon, lat, bounds):
