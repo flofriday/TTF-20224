@@ -4,7 +4,7 @@ export interface Lift {
     status: 'open' | 'closed' | 'hold'
     type: 'express' | 'quad' | 'magic-carpet'
     difficulty: 'beginner' | 'intermediate' | 'advanced'
-    waitTime: number
+    wait_time: number
     path: number[][] | string
     capacity: number
     currentLoad: number

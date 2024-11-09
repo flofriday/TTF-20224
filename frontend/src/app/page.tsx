@@ -162,7 +162,7 @@ export default function Home() {
                                             <span className="text-xl">{typeIcons[lift.type]}</span>
                                             <div className="flex flex-col items-start">
                                                 <span className="font-medium">{lift.name}</span>
-                                                <span className="text-sm text-slate-600">{lift.waitTime} min wait</span>
+                                                <span className="text-sm text-slate-600">Estimated wait time: {lift.wait_time} min</span>
                                             </div>
                                         </div>
                                         <div className="pt-2 flex gap-1 items-center">
@@ -179,7 +179,7 @@ export default function Home() {
                                         <div className="text-sm text-slate-600 space-y-1">
                                             <p>Type: {lift.type}</p>
                                             <p>Status: {lift.status}</p>
-                                            <p>Wait Time: {lift.waitTime} minutes</p>
+                                            <p>Wait Time: {lift.wait_time} minutes</p>
                                             <p>Difficulty: {lift.difficulty}</p>
                                             {lift.description && (
                                                 <p className="text-xs mt-2">{lift.description}</p>
