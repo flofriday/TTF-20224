@@ -12,6 +12,7 @@ import os
 import sys
 from pathlib import Path
 from shapely.geometry import mapping
+import random
 
 # Image dimensions
 IMG_WIDTH = 1600
@@ -334,6 +335,10 @@ if __name__ == "__main__":
 
             # Add the pixel coordinates as the path
             lift_dict["path"] = json.dumps(pixel_coords)
+            lift_dict["current_load"] = 0
+            lift_dict["wait_time"] = random.randint(0, 10)
+            lift_dict["image_url"] = ""
+            lift_dict["webcam_url"] = ""
 
             # Create and add the lift
             lift = SkiLift(**lift_dict)
