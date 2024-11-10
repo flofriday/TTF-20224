@@ -5,12 +5,15 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
-import { getLifts, getSkiMap } from '@/lib/api'
+import { getLifts, getSkiMap, getResorts, getResortLifts, getResortMap } from '@/lib/api'
 import { Lift } from '@/types/lift'
 import { drawLiftLine } from '@/lib/utils'
 import { Map } from '@/components/Map'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useTheme } from 'next-themes'
+import { SkiResort } from '@/types/resort'
+import { ResortSelector } from '@/components/ResortSelector'
+import { useSearchParams, useRouter } from 'next/navigation'
 
 const typeIcons = {
     'express': '⚡',        // Express lift
@@ -39,115 +42,211 @@ const statusColors = {
 }
 
 export default function Home() {
+    const router = useRouter()
+    const searchParams = useSearchParams()
     const [selectedLift, setSelectedLift] = useState<string | null>(null)
+    const [selectedResort, setSelectedResort] = useState<SkiResort | null>(null)
+    const [resorts, setResorts] = useState<SkiResort[]>([])
     const [lifts, setLifts] = useState<Lift[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [mapUrl, setMapUrl] = useState<string | null>(null)
     const { theme } = useTheme()
+    const [isStylesLoaded, setIsStylesLoaded] = useState(false)
 
+    // Initialize selected resort from URL parameter
     useEffect(() => {
-        const fetchLifts = async () => {
+        const fetchResorts = async () => {
+            setIsLoading(true)
+            try {
+                const data = await getResorts()
+                setResorts(data)
+
+                // Get resort ID from URL or default to first resort
+                const resortId = searchParams.get('resort')
+                const initialResort = resortId
+                    ? data.find(r => String(r.id) === String(resortId))
+                    : data[0]
+
+                if (initialResort) {
+                    setSelectedResort(initialResort)
+                    // Ensure URL always reflects the current resort
+                    router.replace(`?resort=${initialResort.id}`, { scroll: false })
+                } else {
+                    // If no valid resort found, default to first resort
+                    if (data.length > 0) {
+                        setSelectedResort(data[0])
+                        router.replace(`?resort=${data[0].id}`, { scroll: false })
+                    } else {
+                        setError('No resorts available')
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch resorts:', err)
+                setError('Failed to load resorts')
+            } finally {
+                setIsLoading(false)
+            }
+        }
+        fetchResorts()
+    }, [])
+
+    // Update URL when resort changes (via selector)
+    const handleResortChange = useCallback((resortId: string) => {
+        const resort = resorts.find(r => String(r.id) === String(resortId))
+        if (resort) {
+            setSelectedResort(resort)
+            router.replace(`?resort=${resortId}`, { scroll: false })
+        } else {
+            console.error('Resort not found:', resortId)
+        }
+    }, [resorts])
+
+    // Fetch lifts and map when selected resort changes
+    useEffect(() => {
+        if (!selectedResort || isLoading) return
+
+        const fetchResortData = async () => {
             try {
                 setIsLoading(true)
-                const data = await getLifts()
-                console.log('Received lift data:', data)
-                setLifts(data)
+                setLifts([]) // Clear existing lifts while loading
+                const [liftsData, mapUrlData] = await Promise.all([
+                    getResortLifts(selectedResort.id),
+                    getResortMap(selectedResort.id)
+                ])
+                setLifts(liftsData)
+                setMapUrl(mapUrlData)
+                setSelectedLift(null) // Reset selected lift when changing resorts
                 setError(null)
             } catch (err) {
-                console.error('Failed to fetch lifts:', err)
-                setError('Failed to load lift data')
+                console.error('Failed to fetch resort data:', err)
+                setError('Failed to load resort data')
+                setLifts([]) // Clear lifts on error
             } finally {
                 setIsLoading(false)
             }
         }
 
-        fetchLifts()
-    }, [])
-
-    useEffect(() => {
-        const fetchMap = async () => {
-            try {
-                const url = await getSkiMap()
-                setMapUrl(url)
-            } catch (err) {
-                console.error('Failed to fetch map:', err)
-                setError('Failed to load map')
-            }
-        }
-
-        fetchMap()
-
+        fetchResortData()
         return () => {
-            // Cleanup object URL when component unmounts
             if (mapUrl) {
                 URL.revokeObjectURL(mapUrl)
             }
         }
+    }, [selectedResort])
+
+    // Add styles loaded check
+    useEffect(() => {
+        // Check if stylesheets are loaded
+        const styleSheets = document.styleSheets
+        if (styleSheets.length > 0) {
+            setIsStylesLoaded(true)
+        } else {
+            const observer = new MutationObserver((mutations) => {
+                if (document.styleSheets.length > 0) {
+                    setIsStylesLoaded(true)
+                    observer.disconnect()
+                }
+            })
+
+            observer.observe(document.head, {
+                childList: true,
+                subtree: true
+            })
+
+            return () => observer.disconnect()
+        }
     }, [])
 
-    if (isLoading) {
+    // Combine loading states
+    if (!isStylesLoaded || isLoading) {
         return (
-            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-                <main className="container mx-auto p-6 space-y-8 max-w-5xl">
-                    <Card className="p-8">
-                        <p className="text-center text-slate-600 dark:text-slate-400">Loading lift data...</p>
-                    </Card>
-                </main>
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+                <div className="text-center space-y-4">
+                    <div className="w-8 h-8 border-4 border-slate-300 border-t-slate-600 rounded-full animate-spin mx-auto" />
+                    <p className="text-slate-600 dark:text-slate-400">Loading...</p>
+                </div>
             </div>
         )
     }
 
+    // Error handling
     if (error) {
         return (
-            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-                <main className="container mx-auto p-6 space-y-8 max-w-5xl">
-                    <Card className="p-8">
-                        <p className="text-center text-red-600 dark:text-red-400">{error}</p>
-                    </Card>
-                </main>
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+                <div className="text-center space-y-4">
+                    <p className="text-red-600 dark:text-red-400">{error}</p>
+                    <Button
+                        onClick={() => window.location.reload()}
+                        variant="outline"
+                    >
+                        Retry
+                    </Button>
+                </div>
             </div>
         )
     }
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-            <div className="absolute top-4 right-4">
+            <div className="absolute top-4 right-4 z-10">
                 <ThemeToggle />
             </div>
 
-            <main className="container mx-auto p-6 space-y-8 max-w-5xl">
+            <main className="container mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8 max-w-5xl">
                 <div className="space-y-2">
-                    <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-100">SlopeFlow</h1>
+                    <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-slate-100">SlopeFlow</h1>
                     <p className="text-slate-600 dark:text-slate-400">Find unused slopes</p>
                 </div>
 
-                <div className="space-y-2">
-                    <Map
-                        lifts={lifts}
-                        selectedLift={selectedLift}
-                        mapUrl={mapUrl}
-                        statusColors={statusColors}
-                        typeIcons={typeIcons}
-                        difficultyColors={difficultyColors}
-                        onLiftSelect={setSelectedLift}
-                        isDarkMode={theme === 'dark'}
+                <div className="relative">
+                    <ResortSelector
+                        resorts={resorts}
+                        selectedResort={selectedResort}
+                        onResortChange={handleResortChange}
                     />
-
-                    {/* Status Legend */}
-                    <div className="flex gap-6 justify-center flex-wrap py-2">
-                        {Object.entries(statusColors).map(([status, color]) => (
-                            <div key={status} className="flex items-center gap-2">
-                                <div className={`w-3 h-3 rounded-full ${color.split(' ')[0]}`} />
-                                <span className="capitalize text-sm text-slate-600 dark:text-slate-400">{status}</span>
-                            </div>
-                        ))}
-                    </div>
                 </div>
+
+                {selectedResort && (
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h2 className="text-2xl font-semibold">{selectedResort.name}</h2>
+                            <div className="flex gap-2">
+                                <Badge variant="secondary">
+                                    Snow: {selectedResort.snow_depth}cm
+                                </Badge>
+                                <Badge variant="secondary">
+                                    {selectedResort.weather_conditions}
+                                </Badge>
+                            </div>
+                        </div>
+
+                        <Map
+                            lifts={lifts}
+                            selectedLift={selectedLift}
+                            mapUrl={mapUrl}
+                            statusColors={statusColors}
+                            typeIcons={typeIcons}
+                            difficultyColors={difficultyColors}
+                            onLiftSelect={setSelectedLift}
+                            isDarkMode={theme === 'dark'}
+                        />
+
+                        {/* Status Legend */}
+                        <div className="flex gap-6 justify-center flex-wrap py-2">
+                            {Object.entries(statusColors).map(([status, color]) => (
+                                <div key={status} className="flex items-center gap-2">
+                                    <div className={`w-3 h-3 rounded-full ${color.split(' ')[0]}`} />
+                                    <span className="capitalize text-sm text-slate-600 dark:text-slate-400">{status}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Lift List */}
                 <div className="grid gap-4">
-                    <h2 className="text-2xl font-semibold text-slate-900">Lifts</h2>
+                    <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Lifts</h2>
                     <div className="grid gap-3">
                         {lifts
                             .sort((a, b) => a.wait_time - b.wait_time)
@@ -157,8 +256,8 @@ export default function Home() {
                                         <div
                                             onClick={() => setSelectedLift(lift.id)}
                                             className={`p-4 rounded-lg w-full justify-between group hover:shadow-md border-2 b
-                                            ${selectedLift === lift.id ? 'bg-gray-200 border-slate-700' : ''}
-                                            transition-all duration-300`}
+                                                ${selectedLift === lift.id ? 'bg-gray-200 border-slate-700' : ''}
+                                                transition-all duration-300`}
                                         >
                                             <div className="flex items-center gap-3">
                                                 <span className="text-xl">{typeIcons[lift.type]}</span>
@@ -193,7 +292,8 @@ export default function Home() {
                             ))}
                     </div>
                 </div>
-            </main>
-        </div>
+
+            </main >
+        </div >
     )
 }

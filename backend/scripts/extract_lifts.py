@@ -474,53 +474,159 @@ def extract_ski_lifts(area_name):
     return handler.lifts, bounds
 
 
+def save_map_for_resort(plt, resort_id):
+    """Save the map for a specific resort with proper sizing and zoom"""
+    # Create the data directory if it doesn't exist
+    os.makedirs("data", exist_ok=True)
+    map_filename = f"ski_map_{resort_id}.png"
+    map_path = os.path.join("data", map_filename)
+
+    # Calculate DPI to maintain exact pixel dimensions
+    fig_width_inches = IMG_WIDTH / 100
+    fig_height_inches = IMG_HEIGHT / 100
+    dpi = 100
+
+    plt.gcf().set_size_inches(fig_width_inches, fig_height_inches)
+    plt.savefig(
+        map_path,
+        dpi=dpi,
+        bbox_inches="tight",
+        pad_inches=0,
+        format="png",
+        transparent=True,
+    )
+    plt.close()
+    return map_filename
+
+
 if __name__ == "__main__":
     # Add parent directory to Python path
     sys.path.append(str(Path(__file__).parent.parent))
 
     from app.database import engine, SessionLocal
-    from app.models import Base, SkiLift
+    from app.models import Base, SkiLift, SkiResort
+
+    # List of major Austrian ski resorts
+    SKI_RESORTS = [
+        {
+            "name": "Obertauern",
+            "location": "Salzburg, Austria",
+            "description": "One of Austria's most snow-sure winter sports destinations, offering excellent skiing conditions from November to May.",
+            "website": "https://www.obertauern.com",
+        },
+        {
+            "name": "Sölden",
+            "location": "Tyrol, Austria",
+            "description": "Year-round glacier skiing area with modern infrastructure and extensive terrain.",
+            "website": "https://www.soelden.com",
+        },
+        {
+            "name": "Ischgl",
+            "location": "Tyrol, Austria",
+            "description": "Famous resort known for its extensive terrain and vibrant après-ski scene.",
+            "website": "https://www.ischgl.com",
+        },
+        {
+            "name": "Saalbach",
+            "location": "Salzburg, Austria",
+            "description": "Part of Austria's largest ski area, offering diverse terrain and modern lifts.",
+            "website": "https://www.saalbach.com",
+        },
+        {
+            "name": "Kitzbühel",
+            "location": "Tyrol, Austria",
+            "description": "Historic resort famous for the Hahnenkamm race, combining tradition with modern amenities.",
+            "website": "https://www.kitzbuehel.com",
+        },
+        {
+            "name": "Sankt Anton",
+            "location": "Tyrol, Austria",
+            "description": "Birthplace of alpine skiing, known for challenging terrain and extensive off-piste options.",
+            "website": "https://www.stantonamarlberg.com",
+        },
+        {
+            "name": "Mayrhofen",
+            "location": "Tyrol, Austria",
+            "description": "Popular resort in the Zillertal Valley, featuring the Hintertux glacier and varied terrain.",
+            "website": "https://www.mayrhofen.at",
+        },
+        {
+            "name": "Zell am See",
+            "location": "Salzburg, Austria",
+            "description": "Scenic lakeside resort with year-round glacier skiing on the Kitzsteinhorn.",
+            "website": "https://www.zellamsee-kaprun.com",
+        },
+    ]
 
     # Drop and recreate all tables
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
-    # Get the lift data and bounds
-    lifts, bounds = extract_ski_lifts("Obertauern")
+    # Process each resort
+    for resort_info in SKI_RESORTS:
+        print(f"\nProcessing resort: {resort_info['name']}")
+        try:
+            # Get the lift data and bounds
+            lifts, bounds = extract_ski_lifts(resort_info["name"])
 
-    db = SessionLocal()
-    try:
-        print(f"Adding {len(lifts)} new lift records...")
-        for lift_data in lifts:
-            # Convert geometry to pixel coordinates
-            coords = list(lift_data["geometry"].coords)
-            pixel_coords = [
-                transform_coords(lon, lat, bounds, IMG_WIDTH, IMG_HEIGHT)
-                for lon, lat in coords
-            ]
+            db = SessionLocal()
+            try:
+                # Create the ski resort
+                ski_resort = SkiResort(
+                    name=resort_info["name"],
+                    location=resort_info["location"],
+                    description=resort_info["description"],
+                    image_url="",  # Will update after getting resort_id
+                    website_url=resort_info["website"],
+                    status="open",
+                    snow_depth=0,
+                    weather_conditions="sunny",
+                    total_lifts=len(lifts),
+                    open_lifts=sum(1 for lift in lifts if lift.get("status") == "open"),
+                )
 
-            # Create a new dict without the geometry field
-            lift_dict = {k: v for k, v in lift_data.items() if k != "geometry"}
+                db.add(ski_resort)
+                db.flush()  # Get the resort_id
 
-            # Add the pixel coordinates as the path
-            lift_dict["path"] = json.dumps(pixel_coords)
-            lift_dict["current_load"] = 0
-            lift_dict["wait_time"] = random.randint(0, 10)
-            lift_dict["image_url"] = ""
-            lift_dict["webcam_url"] = ""
-            lift_dict["status"] = random.choice(["open", "closed"])
-            lift_dict["difficulty"] = lift_data["difficulty"]
-            lift_dict["type"] = lift_data["type"]
-            lift_dict["capacity"] = lift_data["capacity"]
-            lift_dict["description"] = lift_data["description"]
-            # Create and add the lift
-            lift = SkiLift(**lift_dict)
-            db.add(lift)
+                # Save the map with resort_id and update the image_url
+                map_filename = save_map_for_resort(plt, ski_resort.id)
+                ski_resort.image_url = f"/maps/{map_filename}"
 
-        db.commit()
-        print("New lift data committed successfully")
-    except Exception as e:
-        print(f"Error during database operations: {e}")
-        db.rollback()
-    finally:
-        db.close()
+                print(f"Adding {len(lifts)} new lift records...")
+                for lift_data in lifts:
+                    # Convert geometry to pixel coordinates
+                    coords = list(lift_data["geometry"].coords)
+                    pixel_coords = [
+                        transform_coords(lon, lat, bounds, IMG_WIDTH, IMG_HEIGHT)
+                        for lon, lat in coords
+                    ]
+
+                    # Create lift entry
+                    lift = SkiLift(
+                        resort_id=ski_resort.id,
+                        name=lift_data["name"],
+                        capacity=lift_data["capacity"],
+                        current_load=0,
+                        description=lift_data["description"],
+                        image_url="",
+                        webcam_url="",
+                        status=random.choice(["open", "closed"]),
+                        type=lift_data["type"],
+                        difficulty=lift_data["difficulty"],
+                        path=json.dumps(pixel_coords),
+                        wait_time=random.randint(0, 10),
+                    )
+                    db.add(lift)
+
+                db.commit()
+                print(
+                    f"New resort (ID: {ski_resort.id}) and lift data committed successfully"
+                )
+                print(f"Map saved as: {map_filename}")
+            except Exception as e:
+                print(f"Error during database operations: {e}")
+                db.rollback()
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"Error processing resort: {resort_info['name']}: {str(e)}")
