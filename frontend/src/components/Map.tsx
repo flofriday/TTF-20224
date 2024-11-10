@@ -35,6 +35,10 @@ const BASE_HEIGHT = 1200
 const MIN_ZOOM = 1
 const MAX_ZOOM = 4
 
+// Add these constants near the other ones
+const HUT_ZOOM_THRESHOLD = 4
+const HUT_MARKER_SIZE = 12
+
 
 
 export function Map({
@@ -95,10 +99,14 @@ export function Map({
         const bounds = getBounds(element)
         const containerRect = containerRef.current.getBoundingClientRect()
 
-        const padding = 50
+        // Add different padding and zoom levels for huts vs lifts
+        const isHut = !Array.isArray(element[0])
+        const padding = isHut ? 20 : 50  // Smaller padding for huts
+        const zoomMultiplier = isHut ? 2.5 : 0.8  // Higher zoom for huts
+
         const scaleX = containerRect.width / (bounds.maxX - bounds.minX + padding * 2)
         const scaleY = containerRect.height / (bounds.maxY - bounds.minY + padding * 2)
-        const newZoom = Math.min(Math.max(Math.min(scaleX, scaleY) * 0.8, 1), 4)
+        const newZoom = Math.min(Math.max(Math.min(scaleX, scaleY) * zoomMultiplier, MIN_ZOOM), MAX_ZOOM)
 
         const centerX = (bounds.minX + bounds.maxX) / 2
         const centerY = (bounds.minY + bounds.maxY) / 2
@@ -247,6 +255,52 @@ export function Map({
         e.stopPropagation()
     }, [])
 
+    const renderHutMarkers = useCallback(() => {
+        if (zoom < HUT_ZOOM_THRESHOLD) return null
+
+        return huts.map((hut) => {
+            const coords = typeof hut.coordinates === 'string'
+                ? JSON.parse(hut.coordinates)
+                : hut.coordinates
+
+            const isSelected = selectedHut?.id === hut.id
+            const scaleX = containerRef.current!.clientWidth / BASE_WIDTH
+            const scaleY = containerRef.current!.clientHeight / BASE_HEIGHT
+
+            // Calculate position considering zoom and pan
+            const x = (coords[0] * scaleX * zoom) + pan.x
+            const y = (coords[1] * scaleY * zoom) + pan.y
+
+            return (
+                <div
+                    key={hut.id}
+                    className="absolute"
+                    style={{
+                        left: `${x}px`,
+                        top: `${y}px`,
+                        transform: 'translate(-50%, -50%)',
+                        // Add a scale transform to counter the parent's zoom
+                        scale: `${1 / zoom}`
+                    }}
+                >
+                    {/* Ripple effects */}
+                    <div className={`absolute inset-0 ${isSelected ? 'block' : 'hidden'}`}>
+                        <div className="absolute inset-0 rounded-full bg-blue-500 animate-[ripple_2s_ease-out_infinite]" />
+                        <div className="absolute inset-0 rounded-full bg-blue-500 animate-[ripple_2s_ease-out_infinite_1s]" />
+                    </div>
+                    {/* Hut marker */}
+                    <div
+                        className={`rounded-full border-2 ${isDarkMode ? 'bg-slate-800 border-white' : 'bg-white border-slate-800'}`}
+                        style={{
+                            width: `${HUT_MARKER_SIZE}px`,
+                            height: `${HUT_MARKER_SIZE}px`,
+                        }}
+                    />
+                </div>
+            )
+        })
+    }, [huts, selectedHut, zoom, pan, isDarkMode])
+
     return (
         <Card
             ref={containerRef}
@@ -280,6 +334,7 @@ export function Map({
                     width={containerRef.current?.clientWidth}
                     height={containerRef.current?.clientHeight}
                 />
+                {renderHutMarkers()}
             </div>
 
             {zoom !== 1 && (

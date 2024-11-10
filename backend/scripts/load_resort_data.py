@@ -484,7 +484,8 @@ def extract_ski_lifts(area_name):
         }
         color = color_map.get(piste["difficulty"], "blue")
 
-        ax.plot(x_pixels, y_pixels, color=color, linewidth=1, alpha=0.7)
+        # Reduced alpha from 0.7 to 0.3 to make slopes more faint
+        ax.plot(x_pixels, y_pixels, color=color, linewidth=1, alpha=0.3)
 
     # Plot lifts
     for idx, row in gdf.iterrows():
@@ -494,7 +495,7 @@ def extract_ski_lifts(area_name):
             for lon, lat in coords
         ]
         x_pixels, y_pixels = zip(*pixel_coords)
-        ax.plot(x_pixels, y_pixels, color="darkred", linewidth=2)
+    # ax.plot(x_pixels, y_pixels, color="darkred", linewidth=2)
 
     # Plot huts
     for hut in handler.huts:

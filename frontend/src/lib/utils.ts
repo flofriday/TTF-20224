@@ -10,7 +10,7 @@ export function drawLiftLine(
   path: number[][],
   color: string,
   isSelected: boolean = false,
-  lineWidth: number = 1,
+  lineWidth: number = 2,
   isDarkMode: boolean = false,
   zoom: number = 1
 ) {
@@ -18,16 +18,12 @@ export function drawLiftLine(
 
   ctx.save()
 
-  // Adjust color opacity based on dark mode
-  const baseOpacity = isDarkMode ? 'cc' : '88'
-  const glowOpacity = isDarkMode ? '44' : '33'
-
   // Adjust line width based on zoom level
   const zoomAdjustedWidth = lineWidth / Math.sqrt(zoom)
   console.log(zoomAdjustedWidth)
   // Set line style with zoom-adjusted widths
-  ctx.strokeStyle = isSelected ? `#${color}` : `#${color}${baseOpacity}`
-  ctx.lineWidth = isSelected ? zoomAdjustedWidth * 1.5 : zoomAdjustedWidth * 1.5
+  ctx.strokeStyle = `#${color}`
+  ctx.lineWidth = isSelected ? zoomAdjustedWidth * 2 : zoomAdjustedWidth * 2
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
 
@@ -39,10 +35,10 @@ export function drawLiftLine(
   }
   ctx.stroke()
 
-  // If selected, add a smaller glow effect
+  // If selected, add a smaller glow effect with solid color
   if (isSelected) {
-    ctx.strokeStyle = `#${color}${glowOpacity}`
-    ctx.lineWidth = zoomAdjustedWidth * 4
+    ctx.strokeStyle = `#${color}`
+    ctx.lineWidth = zoomAdjustedWidth * 5
     ctx.stroke()
   }
 
