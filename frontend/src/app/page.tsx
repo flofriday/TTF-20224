@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
-import { getResorts, getResortLifts, getResortMap } from '@/lib/api'
+import { getResorts, getResortLifts, getResortMap, getResortHuts } from '@/lib/api'
 import { Lift } from '@/types/lift'
 import { Map } from '@/components/Map'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -15,6 +15,9 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Camera } from 'lucide-react'
 import Link from 'next/link'
 import { MapIcon } from 'lucide-react'
+import { Hut } from '@/types'
+import { HutListCard } from '@/components/HutListCard'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const typeIcons = {
     'express': '⚡',        // Express lift
@@ -44,6 +47,19 @@ const statusColors = {
     closed: 'bg-slate-500 text-white'
 }
 
+// Add these color utility constants
+const getWaitTimeColor = (waitTime: number) => {
+    if (waitTime <= 5) return 'bg-green-500'
+    if (waitTime <= 10) return 'bg-yellow-500'
+    return 'bg-red-500'
+}
+
+const getSeatsColor = (freeSeats: number) => {
+    if (freeSeats >= 50) return 'bg-green-500'
+    if (freeSeats >= 10) return 'bg-yellow-500'
+    return 'bg-red-500'
+}
+
 export default function Home() {
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -57,6 +73,8 @@ export default function Home() {
     const { theme } = useTheme()
     const [isStylesLoaded, setIsStylesLoaded] = useState(false)
     const [zoomToLift, setZoomToLift] = useState<string | null>(null)
+    const [huts, setHuts] = useState<Hut[]>([])
+    const [selectedHut, setSelectedHut] = useState<Hut | null>(null)
 
     // Initialize selected resort from URL parameter
     useEffect(() => {
@@ -114,18 +132,25 @@ export default function Home() {
             try {
                 setIsLoading(true)
                 setLifts([]) // Clear existing lifts while loading
-                const [liftsData, mapUrlData] = await Promise.all([
+                const [liftsData, mapUrlData, hutsData] = await Promise.all([
                     getResortLifts(selectedResort.id),
-                    getResortMap(selectedResort.id)
+                    getResortMap(selectedResort.id),
+                    getResortHuts(selectedResort.id)
                 ])
                 setLifts(liftsData)
                 setMapUrl(mapUrlData)
-                setSelectedLift(null) // Reset selected lift when changing resorts
+                setHuts(hutsData.map(hut => ({
+                    ...hut,
+                    coordinates: JSON.parse(hut.coordinates)
+                })))
+                setSelectedLift(null)
+                setSelectedHut(null)
                 setError(null)
             } catch (err) {
                 console.error('Failed to fetch resort data:', err)
                 setError('Failed to load resort data')
-                setLifts([]) // Clear lifts on error
+                setLifts([])
+                setHuts([])
             } finally {
                 setIsLoading(false)
             }
@@ -210,17 +235,7 @@ export default function Home() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-            <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-                <Link href="/huts">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2"
-                    >
-                        <MapIcon className="w-4 h-4" />
-                        <span>Mountain Huts</span>
-                    </Button>
-                </Link>
+            <div className="absolute top-4 right-4 z-10">
                 <ThemeToggle />
             </div>
 
@@ -255,11 +270,14 @@ export default function Home() {
                         <Map
                             lifts={lifts}
                             selectedLift={selectedLift}
+                            huts={huts}
+                            selectedHut={selectedHut}
                             mapUrl={mapUrl}
                             statusColors={statusColors}
                             typeIcons={typeIcons}
                             difficultyColors={difficultyColors}
                             onLiftSelect={setSelectedLift}
+                            onHutSelect={setSelectedHut}
                             isDarkMode={theme === 'dark'}
                             zoomToLift={zoomToLift}
                             onZoomComplete={() => setZoomToLift(null)}
@@ -277,60 +295,89 @@ export default function Home() {
                     </div>
                 )}
 
-                {/* Lift List */}
-                <div className="grid gap-4">
-                    <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Lifts</h2>
-                    <div className="grid gap-3">
-                        {sortedLifts.map((lift) => (
-                            <HoverCard key={lift.id}>
-                                <HoverCardTrigger asChild>
-                                    <div
-                                        onClick={() => handleLiftSelect(lift.id)}
-                                        className={`p-4 rounded-lg w-full justify-between group hover:shadow-md border-2
-                                            ${selectedLift === lift.id ? 'bg-gray-200 border-slate-700' : ''}
-                                            transition-all duration-300 cursor-pointer`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-xl">{typeIcons[lift.type]}</span>
-                                            <div className="flex flex-col items-start">
-                                                <span className="font-medium">{lift.name}</span>
-                                                <span className="text-sm text-slate-600">
-                                                    {lift.status === 'closed'
-                                                        ? 'Currently closed'
-                                                        : `Estimated wait time: ${lift.wait_time} min`
-                                                    }
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="pt-2 flex gap-1 items-center">
-                                            <Badge variant="secondary" className={`rounded-full ${statusColors[lift.status]}`}>
-                                                {lift.status}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                </HoverCardTrigger>
-                                <HoverCardContent className="w-80">
-                                    <div className="space-y-2">
-                                        <h4 className="text-sm font-semibold">{lift.name}</h4>
-                                        <div className="text-sm text-slate-600 space-y-1">
-                                            <p>Type: {lift.type}</p>
-                                            <p>Status: {lift.status}</p>
-                                            <p>
-                                                {lift.status === 'closed'
-                                                    ? 'Wait Time: Indefinitely'
-                                                    : `Wait Time: ${lift.wait_time} minutes`
-                                                }
-                                            </p>
-                                            <p>Difficulty: {lift.difficulty}</p>
-                                            {lift.description && (
-                                                <p className="text-xs mt-2">{lift.description}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </HoverCardContent>
-                            </HoverCard>
-                        ))}
-                    </div>
+                {/* Replace the Lift List section */}
+                <div className="space-y-4">
+                    <Tabs defaultValue="lifts" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="lifts">Lifts</TabsTrigger>
+                            <TabsTrigger value="huts">Mountain Huts</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="lifts">
+                            <div className="grid gap-4">
+                                <div className="grid gap-3">
+                                    {sortedLifts.map((lift) => (
+                                        <HoverCard key={lift.id}>
+                                            <HoverCardTrigger asChild>
+                                                <div
+                                                    onClick={() => handleLiftSelect(lift.id)}
+                                                    className={`p-4 rounded-lg w-full group hover:shadow-md border-2
+                                                        ${selectedLift === lift.id ? 'bg-gray-200 dark:bg-slate-800 border-slate-700' : 'border-transparent'}
+                                                        transition-all duration-300 cursor-pointer`}
+                                                >
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-xl">{typeIcons[lift.type]}</span>
+                                                            <div className="flex flex-col">
+                                                                <span className="font-medium">{lift.name}</span>
+                                                                <span className="text-sm text-slate-600 dark:text-slate-400">
+                                                                    {lift.type.replace('_', ' ')}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <Badge variant="secondary" className={`rounded-full ${statusColors[lift.status]}`}>
+                                                            {lift.status}
+                                                        </Badge>
+                                                    </div>
+                                                    {lift.status === 'open' && (
+                                                        <div className="mt-2">
+                                                            <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
+                                                                <span>Wait Time</span>
+                                                                <span>{lift.wait_time} min</span>
+                                                            </div>
+                                                            <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+                                                                <div
+                                                                    className={`h-full rounded-full transition-all ${getWaitTimeColor(lift.wait_time)}`}
+                                                                    style={{
+                                                                        width: `${Math.min((lift.wait_time / 20) * 100, 100)}%`
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </HoverCardTrigger>
+                                            <HoverCardContent className="w-80">
+                                                <div className="space-y-2">
+                                                    <h4 className="text-sm font-semibold">{lift.name}</h4>
+                                                    <div className="text-sm text-slate-600 space-y-1">
+                                                        <p>Type: {lift.type}</p>
+                                                        <p>Status: {lift.status}</p>
+                                                        <p>
+                                                            {lift.status === 'closed'
+                                                                ? 'Wait Time: Indefinitely'
+                                                                : `Wait Time: ${lift.wait_time} minutes`
+                                                            }
+                                                        </p>
+                                                        <p>Difficulty: {lift.difficulty}</p>
+                                                        {lift.description && (
+                                                            <p className="text-xs mt-2">{lift.description}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </HoverCardContent>
+                                        </HoverCard>
+                                    ))}
+                                </div>
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="huts">
+                            <HutListCard
+                                huts={huts}
+                                selectedHut={selectedHut}
+                                onHutSelect={setSelectedHut}
+                            />
+                        </TabsContent>
+                    </Tabs>
                 </div>
 
             </main >

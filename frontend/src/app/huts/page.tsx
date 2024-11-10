@@ -2,17 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import { MapView } from '@/components/MapView'
-import { HutList } from '@/components/HutList'
 import { Hut } from '@/types'
 import { ResortSelector } from '@/components/ResortSelector'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Badge } from '@/components/ui/badge'
-import { getResorts, getResortHuts } from '@/lib/api'
+import { getResorts, getResortHuts, getResortLifts } from '@/lib/api'
 import { SkiResort } from '@/types/resort'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { HutListCard } from "@/components/HutListCard"
+import { LiftListCard } from "@/components/LiftListCard"
+import { Lift } from '@/types/lift'
 
 export default function HutsPage() {
     const router = useRouter()
@@ -23,6 +26,8 @@ export default function HutsPage() {
     const [selectedResort, setSelectedResort] = useState<SkiResort | null>(null)
     const [resorts, setResorts] = useState<SkiResort[]>([])
     const [error, setError] = useState<string | null>(null)
+    const [lifts, setLifts] = useState<Lift[]>([])
+    const [selectedLift, setSelectedLift] = useState<Lift | null>(null)
 
     // Initialize selected resort from URL parameter
     useEffect(() => {
@@ -82,6 +87,23 @@ export default function HutsPage() {
         }
 
         fetchHuts()
+    }, [selectedResort])
+
+    // Add effect to fetch lifts
+    useEffect(() => {
+        if (!selectedResort) return
+
+        const fetchLifts = async () => {
+            try {
+                const data = await getResortLifts(selectedResort.id)
+                setLifts(data)
+            } catch (err) {
+                console.error('Failed to fetch lifts:', err)
+                setLifts([])
+            }
+        }
+
+        fetchLifts()
     }, [selectedResort])
 
     const handleResortChange = (resortId: string) => {
@@ -169,11 +191,26 @@ export default function HutsPage() {
                                 />
                             </div>
                             <div className="w-80">
-                                <HutList
-                                    huts={huts}
-                                    selectedHut={selectedHut}
-                                    onHutSelect={setSelectedHut}
-                                />
+                                <Tabs defaultValue="lifts" className="w-full">
+                                    <TabsList className="grid w-full grid-cols-2">
+                                        <TabsTrigger value="lifts">Lifts</TabsTrigger>
+                                        <TabsTrigger value="huts">Mountain Huts</TabsTrigger>
+                                    </TabsList>
+                                    <TabsContent value="lifts">
+                                        <LiftListCard
+                                            lifts={lifts}
+                                            selectedLift={selectedLift}
+                                            onLiftSelect={setSelectedLift}
+                                        />
+                                    </TabsContent>
+                                    <TabsContent value="huts">
+                                        <HutListCard
+                                            huts={huts}
+                                            selectedHut={selectedHut}
+                                            onHutSelect={setSelectedHut}
+                                        />
+                                    </TabsContent>
+                                </Tabs>
                             </div>
                         </div>
                     </div>
