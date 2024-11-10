@@ -9,7 +9,7 @@ import { drawLiftLine } from '@/lib/utils'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Hut } from '@/types'
-
+import { getQueueStatus } from '@/types/lift'
 interface MapProps {
     lifts: Lift[]
     selectedLift: Lift | null
@@ -201,6 +201,10 @@ export function Map({
         const colorMap: Record<string, string> = {
             'bg-teal-600': isDarkMode ? '2DD4BF' : '0D9488',    // teal for operating
             'bg-slate-500': isDarkMode ? '94A3B8' : '64748B',   // grey for closed
+            'queue-none': isDarkMode ? '22C55E' : '16A34A',     // green for no queue
+            'queue-light': isDarkMode ? 'FCD34D' : 'F59E0B',    // yellow for light queue
+            'queue-medium': isDarkMode ? 'FB923C' : 'EA580C',   // orange for medium queue
+            'queue-heavy': isDarkMode ? 'EF4444' : 'DC2626',    // red for heavy queue
         }
 
         const rect = container.getBoundingClientRect()
@@ -224,8 +228,15 @@ export function Map({
             ctx.lineCap = 'round'
             ctx.lineJoin = 'round'
 
-            const statusColorClass = statusColors[lift.status].split(' ')[0]
-            const lineColor = colorMap[statusColorClass] || (isDarkMode ? 'FFFFFF' : '000000')
+            // Determine line color based on wait time if lift is operating
+            let lineColor
+            if (lift.status === 'open') {
+                const queueStatus = getQueueStatus(lift.wait_time)
+                lineColor = colorMap[`queue-${queueStatus}`] || colorMap['queue-none']
+            } else {
+                const statusColorClass = statusColors[lift.status].split(' ')[0]
+                lineColor = colorMap[statusColorClass] || (isDarkMode ? 'FFFFFF' : '000000')
+            }
 
             const lineWidth = isSelected ? 2 : 1
             const lineOpacity = isSelected ? 1 : 0.7
