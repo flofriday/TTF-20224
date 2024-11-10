@@ -528,8 +528,8 @@ if __name__ == "__main__":
                     image_url="",  # Will update after getting resort_id
                     website_url=resort_info["website"],
                     status="open",
-                    snow_depth=0,
-                    weather_conditions="sunny",
+                    snow_depth=random.randint(10, 100),
+                    weather_conditions=random.choice(["sunny", "cloudy", "rainy"]),
                     total_lifts=len(lifts),
                     open_lifts=sum(1 for lift in lifts if lift.get("status") == "open"),
                 )
