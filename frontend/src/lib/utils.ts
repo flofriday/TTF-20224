@@ -11,38 +11,38 @@ export function drawLiftLine(
   color: string,
   isSelected: boolean = false,
   lineWidth: number = 1,
-  isDarkMode: boolean = false
+  isDarkMode: boolean = false,
+  zoom: number = 1
 ) {
   if (!path || path.length < 2) return
 
   ctx.save()
 
   // Adjust color opacity based on dark mode
-  const baseOpacity = isDarkMode ? 'cc' : '88' // More visible in dark mode
+  const baseOpacity = isDarkMode ? 'cc' : '88'
   const glowOpacity = isDarkMode ? '44' : '33'
 
-  // Set line style
+  // Adjust line width based on zoom level
+  const zoomAdjustedWidth = lineWidth / Math.sqrt(zoom)
+  console.log(zoomAdjustedWidth)
+  // Set line style with zoom-adjusted widths
   ctx.strokeStyle = isSelected ? `#${color}` : `#${color}${baseOpacity}`
-  ctx.lineWidth = isSelected ? lineWidth * 2.5 : lineWidth * 2.5
+  ctx.lineWidth = isSelected ? zoomAdjustedWidth * 1.5 : zoomAdjustedWidth * 1.5
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
 
-  // Begin the path
+  // Draw the line
   ctx.beginPath()
   ctx.moveTo(path[0][0], path[0][1])
-
-  // Draw the line segments
   for (let i = 1; i < path.length; i++) {
     ctx.lineTo(path[i][0], path[i][1])
   }
-
-  // Stroke the path
   ctx.stroke()
 
-  // If selected, add a glow effect
+  // If selected, add a smaller glow effect
   if (isSelected) {
     ctx.strokeStyle = `#${color}${glowOpacity}`
-    ctx.lineWidth = lineWidth * 4
+    ctx.lineWidth = zoomAdjustedWidth * 4
     ctx.stroke()
   }
 

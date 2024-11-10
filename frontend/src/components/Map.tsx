@@ -192,11 +192,10 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
             const lineOpacity = isSelected ? 1 : 0.7
 
             ctx.globalAlpha = lineOpacity
-            drawLiftLine(ctx, scaledPath, lineColor, isSelected, lineWidth, isDarkMode)
+            drawLiftLine(ctx, scaledPath, lineColor, isSelected, lineWidth, isDarkMode, zoom)
             ctx.globalAlpha = 1
         })
-    }, [lifts, selectedLift, isDarkMode, statusColors])
-
+    }, [lifts, selectedLift, isDarkMode, statusColors, zoom])
     // Effect to redraw on zoom changes
     useEffect(() => {
         drawLifts()
