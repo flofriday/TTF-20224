@@ -6,6 +6,8 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { Badge } from '@/components/ui/badge'
 import { Lift } from '@/types/lift'
 import { drawLiftLine } from '@/lib/utils'
+import { RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 interface MapProps {
     lifts: Lift[]
@@ -22,11 +24,53 @@ interface MapProps {
 const BASE_WIDTH = 1600
 const BASE_HEIGHT = 1200
 
+// Add new state variables after the BASE constants
+const MIN_ZOOM = 1
+const MAX_ZOOM = 4
+
+
+
 export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, difficultyColors, onLiftSelect, isDarkMode }: MapProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
+    const [zoom, setZoom] = useState(1)
+    const [pan, setPan] = useState({ x: 0, y: 0 })
+    const [isDragging, setIsDragging] = useState(false)
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
 
-    // Function to draw all lift lines
+    // Handle zooming
+    const handleWheel = useCallback((e: WheelEvent) => {
+        e.preventDefault()
+        const delta = e.deltaY * -0.01
+        const newZoom = Math.min(Math.max(zoom + delta, MIN_ZOOM), MAX_ZOOM)
+        setZoom(newZoom)
+    }, [zoom])
+
+    // Handle panning
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault()
+        setIsDragging(true)
+        setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y })
+    }, [pan])
+
+    const handleMouseMove = useCallback((e: React.MouseEvent) => {
+        if (!isDragging) return
+        setPan({
+            x: e.clientX - dragStart.x,
+            y: e.clientY - dragStart.y
+        })
+    }, [isDragging, dragStart])
+
+    const handleMouseUp = useCallback(() => {
+        setIsDragging(false)
+    }, [])
+
+    // Reset function
+    const handleReset = useCallback(() => {
+        setZoom(1)
+        setPan({ x: 0, y: 0 })
+    }, [])
+
     const drawLifts = useCallback(() => {
         const canvas = canvasRef.current
         const container = containerRef.current
@@ -35,42 +79,32 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
         const ctx = canvas.getContext('2d')
         if (!ctx) return
 
-        // Get current container dimensions
-        const rect = container.getBoundingClientRect()
-
-        // Update canvas dimensions to match container
-        canvas.width = rect.width
-        canvas.height = rect.height
-
-        // Make canvas transparent instead of filling with a background color
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-        // Calculate scale factors based on current dimensions
-        const scaleX = canvas.width / BASE_WIDTH
-        const scaleY = canvas.height / BASE_HEIGHT
-
-        // Color mapping from Tailwind classes to hex colors
         const colorMap: Record<string, string> = {
             'bg-teal-600': isDarkMode ? '2DD4BF' : '0D9488',    // teal for operating
             'bg-slate-500': isDarkMode ? '94A3B8' : '64748B',   // grey for closed
         }
 
-        // Draw each lift line, excluding stations
+        const rect = container.getBoundingClientRect()
+        canvas.width = rect.width
+        canvas.height = rect.height
+
+        const scaleX = rect.width / BASE_WIDTH
+        const scaleY = rect.height / BASE_HEIGHT
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+
         lifts.filter(lift => lift.type !== 'station').forEach(lift => {
             const path = typeof lift.path === 'string' ? JSON.parse(lift.path) : lift.path
             const isSelected = selectedLift === lift.id
 
-            // Scale the path coordinates
             const scaledPath = path.map((point: number[]) => [
                 point[0] * scaleX,
                 point[1] * scaleY
             ])
 
-            // Set line properties
             ctx.lineCap = 'round'
             ctx.lineJoin = 'round'
 
-            // Get the base status color class
             const statusColorClass = statusColors[lift.status].split(' ')[0]
             const lineColor = colorMap[statusColorClass] || (isDarkMode ? 'FFFFFF' : '000000')
 
@@ -83,64 +117,62 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
         })
     }, [lifts, selectedLift, isDarkMode, statusColors])
 
-    // Function to update canvas size
-    const updateCanvasSize = useCallback(() => {
-        const canvas = canvasRef.current
-        const container = containerRef.current
-        if (!canvas || !container) return
-
-        const rect = container.getBoundingClientRect()
-        canvas.width = rect.width
-        canvas.height = rect.height
-        drawLifts()
-    }, [drawLifts])
-
-    // Effect to handle canvas resize
-    useEffect(() => {
-        updateCanvasSize()
-        window.addEventListener('resize', updateCanvasSize)
-        return () => window.removeEventListener('resize', updateCanvasSize)
-    }, [updateCanvasSize])
-
-    // Effect to redraw canvas when selected lift or lifts change
+    // Effect to redraw on zoom changes
     useEffect(() => {
         drawLifts()
-    }, [selectedLift, lifts, drawLifts])
+    }, [drawLifts, zoom])
 
-    // Add a function to calculate the correct position
-    const calculatePosition = useCallback((point: number[]) => {
+    useEffect(() => {
         const container = containerRef.current
-        if (!container) return { left: 0, top: 0 }
+        if (!container) return
 
-        const rect = container.getBoundingClientRect()
-        const scaleX = rect.width / BASE_WIDTH
-        const scaleY = rect.height / BASE_HEIGHT
-
-        return {
-            left: point[0] * scaleX,
-            top: point[1] * scaleY
-        }
-    }, [])
+        container.addEventListener('wheel', handleWheel, { passive: false })
+        return () => container.removeEventListener('wheel', handleWheel)
+    }, [handleWheel])
 
     return (
         <Card
             ref={containerRef}
-            className={`relative w-full aspect-[4/3] overflow-hidden shadow-xl
+            className={`relative w-full aspect-[4/3] overflow-hidden shadow-xl touch-none
+                ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}
                 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
         >
-            {mapUrl && (
-                <img
-                    src={mapUrl}
-                    alt="Ski Map"
-                    className={`absolute inset-0 w-full h-full object-contain transition-all duration-300
-                        ${isDarkMode ? 'invert brightness-[.85] hue-rotate-180' : ''}`}
-                    onLoad={updateCanvasSize}
-                />
+            {zoom !== 1 && (
+                <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute top-2 right-2 z-10 bg-opacity-75 hover:bg-opacity-100"
+                    onClick={handleReset}
+                >
+                    <RefreshCw className="h-4 w-4" />
+                </Button>
             )}
-            <canvas
-                ref={canvasRef}
-                className="absolute inset-0 pointer-events-none"
-            />
+
+            <div
+                className="absolute inset-0"
+                style={{
+                    transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                    transformOrigin: '0 0'
+                }}
+            >
+                {mapUrl && (
+                    <img
+                        src={mapUrl}
+                        alt="Ski Map"
+                        className={`absolute inset-0 w-full h-full object-contain
+                            ${isDarkMode ? 'invert brightness-[.85] hue-rotate-180' : ''}`}
+                        onLoad={drawLifts}
+                    />
+                )}
+                <canvas
+                    ref={canvasRef}
+                    className="absolute inset-0 pointer-events-none"
+                />
+            </div>
         </Card>
     )
 }

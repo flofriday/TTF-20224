@@ -529,7 +529,7 @@ if __name__ == "__main__":
                     website_url=resort_info["website"],
                     status="open",
                     snow_depth=random.randint(10, 100),
-                    weather_conditions=random.choice(["sunny", "cloudy", "rainy"]),
+                    weather_conditions=random.choice(["sunny", "cloudy", "snowing"]),
                     total_lifts=len(lifts),
                     open_lifts=sum(1 for lift in lifts if lift.get("status") == "open"),
                 )
