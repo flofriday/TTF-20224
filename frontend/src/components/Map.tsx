@@ -283,19 +283,6 @@ export function Map({
                         scale: `${1 / zoom}`
                     }}
                 >
-                    {/* Ripple effects */}
-                    <div className={`absolute inset-0 ${isSelected ? 'block' : 'hidden'}`}>
-                        <div className="absolute inset-0 rounded-full bg-blue-500 animate-[ripple_2s_ease-out_infinite]" />
-                        <div className="absolute inset-0 rounded-full bg-blue-500 animate-[ripple_2s_ease-out_infinite_1s]" />
-                    </div>
-                    {/* Hut marker */}
-                    <div
-                        className={`rounded-full border-2 ${isDarkMode ? 'bg-slate-800 border-white' : 'bg-white border-slate-800'}`}
-                        style={{
-                            width: `${HUT_MARKER_SIZE}px`,
-                            height: `${HUT_MARKER_SIZE}px`,
-                        }}
-                    />
                 </div>
             )
         })
