@@ -224,6 +224,7 @@ export default function Home() {
 
     const handleHutSelect = (hut: Hut) => {
         setSelectedHut(hut)
+        setSelectedLift(null)
         setZoomToHut(hut.id) // Trigger zoom when selecting a hut
     }
 
