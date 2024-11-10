@@ -2,13 +2,29 @@
 
 Our entry for the [Tourism Tech Festival 2.0](https://tourism-technology.com/) (2024)
 
-## Prerequisites
+![Screenshot](screenshot.png)
 
-- Python 3.8+
-- Node.js and npm
-- Docker (optional, for containerized setup)
+Snowflow is a delightful webapp to discover the slopes in your ski resort with
+the least people and the most fun. For accurate live-reporting we process webcam
+feeds and detect the number of people waiting at the ski-lifts with machine 
+learning to precisely estimate the waiting times.
 
-## Installation & Setup
+
+## Build and run with Docker
+
+```bash
+docker compose up --build
+```
+
+This will build the frontend which is accessible at http://localhost:3000 and backend at http://localhost:8000.
+
+## Build and run locally
+
+You will need the following requirements for the local build:
+
+- [Python 3.12+](https://www.python.org/downloads/) and [Pip](https://pip.pypa.io/en/stable/installation/)
+- [Node.js](https://nodejs.org/) and [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) 
+
 
 ### Backend Setup
 
@@ -16,7 +32,7 @@ Our entry for the [Tourism Tech Festival 2.0](https://tourism-technology.com/) (
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows use: .\venv\Scripts\activate
+source venv/bin/activate 
 pip install -r requirements.txt
 ```
 
@@ -32,7 +48,8 @@ wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg -P
 wget https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names -P models/
 ```
 
-3. Fill out the `backend/data/ski_resorts.json` file with the correct data. Example:  
+3. Adapt the `backend/data/ski_resorts.json` file to your liking. By default it already includes some of the best known resorts in Austria. Example schema:  
+
 ```json
 {
   "resorts": [
@@ -46,50 +63,43 @@ wget https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names -
 }
 ```
 
-4. Load resort data and start the server:
+4. Load resort data
 ```bash
 python scripts/load_resort_data.py
+```
+
+5. Finally start the server with
+```bash
 uvicorn app.main:app --reload
 ```
 
-The backend will be available at http://localhost:8000
+The backend will be available at http://localhost:8000.
 
 ### Frontend Setup
 
-In a new terminal:
+In a new terminal run:
+
 ```bash
-cd frontend  # Navigate to frontend directory
+cd frontend
 npm install
 npm run dev
 ```
 
-The frontend will be available at http://localhost:3000
-
-## Docker Setup (Alternative)
-
-For a containerized setup, simply run:
-```bash
-docker compose up
-```
-
-This will start both frontend and backend services in containers.
+The frontend will be available at http://localhost:3000.
 
 ## Development
 
 ### Code Style
 
-We maintain code quality through automated formatting:
+We maintain a consistent code style through automated formatting:
 
-- **Python**: We use either [ruff](https://github.com/astral-sh/ruff) or [black](https://github.com/psf/black)
+- **Python**: We use either [ruff](https://github.com/astral-sh/ruff)
 - **TypeScript/HTML/CSS**: We use [prettier](https://prettier.io/)
+
+To further improve the code quality we use linters like [ESLint](https://eslint.org/) for TypeScript and [ruff](https://docs.astral.sh/ruff/) for Python.
 
 Run the formatters before submitting any changes.
 
 ## Contributing
 
-Contributions are welcome! Feel free to:
-- Submit bug reports
-- Propose new features
-- Create pull requests
-
-We appreciate your interest in improving this project! 😊✨
+Contributions are quite welcome! You are awesome 😊✨
