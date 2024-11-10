@@ -1,13 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Card } from '@/components/ui/card'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
-import { getLifts, getSkiMap, getResorts, getResortLifts, getResortMap } from '@/lib/api'
+import { getResorts, getResortLifts, getResortMap } from '@/lib/api'
 import { Lift } from '@/types/lift'
-import { drawLiftLine } from '@/lib/utils'
 import { Map } from '@/components/Map'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useTheme } from 'next-themes'
@@ -16,6 +14,7 @@ import { ResortSelector } from '@/components/ResortSelector'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Camera } from 'lucide-react'
 import Link from 'next/link'
+import { MapIcon } from 'lucide-react'
 
 const typeIcons = {
     'express': '⚡',        // Express lift
@@ -105,7 +104,7 @@ export default function Home() {
         } else {
             console.error('Resort not found:', resortId)
         }
-    }, [resorts])
+    }, [resorts, router])
 
     // Fetch lifts and map when selected resort changes
     useEffect(() => {
@@ -211,7 +210,17 @@ export default function Home() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-            <div className="absolute top-4 right-4 z-10">
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+                <Link href="/huts">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-2"
+                    >
+                        <MapIcon className="w-4 h-4" />
+                        <span>Mountain Huts</span>
+                    </Button>
+                </Link>
                 <ThemeToggle />
             </div>
 

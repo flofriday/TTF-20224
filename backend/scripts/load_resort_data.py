@@ -23,8 +23,9 @@ class WayHandler(osmium.SimpleHandler):
         self.lifts = []
         self.pistes = []
         self.water_bodies = []
+        self.huts = []
         self.nodes = {}
-        self.way_nodes = {}  # Add storage for way nodes
+        self.way_nodes = {}
 
     def node(self, n):
         # Cache node coordinates
@@ -147,6 +148,40 @@ class WayHandler(osmium.SimpleHandler):
 
             except Exception as e:
                 print(f"Error processing water body: {str(e)}")
+
+        # Add hut/restaurant handling
+        if (
+            "amenity" in w.tags and w.tags["amenity"] in ["restaurant", "cafe", "bar"]
+        ) or (
+            "tourism" in w.tags
+            and w.tags["tourism"] in ["alpine_hut", "wilderness_hut"]
+        ):
+            try:
+                # Get the center point of the way
+                coords = []
+                for node_ref in w.nodes:
+                    node = self.nodes.get(node_ref.ref)
+                    if node:
+                        coords.append((node["lon"], node["lat"]))
+
+                if not coords:
+                    return
+
+                # Calculate centroid for point placement
+                center_lon = sum(c[0] for c in coords) / len(coords)
+                center_lat = sum(c[1] for c in coords) / len(coords)
+
+                hut_data = {
+                    "name": w.tags.get("name", "Unnamed Hut"),
+                    "type": w.tags.get("amenity", w.tags.get("tourism", "unknown")),
+                    "description": w.tags.get("description", ""),
+                    "coordinates": (center_lon, center_lat),
+                    "elevation": 0,  # Will be populated later
+                }
+                self.huts.append(hut_data)
+                print(f"Successfully added hut: {hut_data['name']}")
+            except Exception as e:
+                print(f"Error processing hut: {str(e)}")
 
 
 def get_elevation_data(bounds):
@@ -298,8 +333,10 @@ def extract_ski_lifts(area_name):
         way["piste:type"](area.searchArea);
         way["natural"="water"](area.searchArea);
         way["water"](area.searchArea);
+        way["amenity"~"^(restaurant|cafe|bar)$"](area.searchArea);
+        way["tourism"~"^(alpine_hut|wilderness_hut)$"](area.searchArea);
     );
-    (._;>;);  // This fetches all nodes for the ways
+    (._;>;);
     out body;
     """
 
@@ -459,6 +496,23 @@ def extract_ski_lifts(area_name):
         x_pixels, y_pixels = zip(*pixel_coords)
         ax.plot(x_pixels, y_pixels, color="darkred", linewidth=2)
 
+    # Plot huts
+    for hut in handler.huts:
+        x, y = transform_coords(
+            hut["coordinates"][0], hut["coordinates"][1], bounds, IMG_WIDTH, IMG_HEIGHT
+        )
+        ax.plot(x, y, marker="^", markersize=8, color="#8B4513")  # Using brown hex code
+
+        # Update annotation color
+        # ax.annotate(
+        #    hut["name"],
+        #    (x, y),
+        #    xytext=(5, 5),
+        #    textcoords="offset points",
+        #    fontsize=8,
+        #    color="#8B4513",  # Using brown hex code
+        # )
+
     plt.savefig(
         "data/ski_map.png",
         dpi=200,
@@ -468,7 +522,7 @@ def extract_ski_lifts(area_name):
         transparent=True,
     )
 
-    return handler.lifts, bounds
+    return handler.lifts, bounds, handler
 
 
 def save_map_for_resort(plt, resort_id):
@@ -501,7 +555,7 @@ if __name__ == "__main__":
     sys.path.append(str(Path(__file__).parent.parent))
 
     from app.database import engine, SessionLocal
-    from app.models import Base, SkiLift, SkiResort
+    from app.models import Base, SkiLift, SkiResort, SkiHut
 
     # Load ski resorts from JSON file
     with open(Path(__file__).parent.parent / "data" / "ski_resorts.json") as f:
@@ -516,7 +570,7 @@ if __name__ == "__main__":
         print(f"\nProcessing resort: {resort_info['name']}")
         try:
             # Get the lift data and bounds
-            lifts, bounds = extract_ski_lifts(resort_info["name"])
+            lifts, bounds, handler = extract_ski_lifts(resort_info["name"])
 
             db = SessionLocal()
             try:
@@ -566,6 +620,30 @@ if __name__ == "__main__":
                         wait_time=random.randint(0, 10),
                     )
                     db.add(lift)
+
+                # Add huts
+                print(f"Adding {len(handler.huts)} new hut records...")
+                for hut_data in handler.huts:
+                    # Convert coordinates to pixels
+                    pixel_coords = transform_coords(
+                        hut_data["coordinates"][0],
+                        hut_data["coordinates"][1],
+                        bounds,
+                        IMG_WIDTH,
+                        IMG_HEIGHT,
+                    )
+
+                    hut = SkiHut(
+                        resort_id=ski_resort.id,
+                        name=hut_data["name"],
+                        type=hut_data["type"],
+                        description=hut_data["description"],
+                        free_seats=random.randint(0, 100),
+                        status=random.choice(["open", "closed"]),
+                        coordinates=json.dumps(pixel_coords),
+                        elevation=hut_data["elevation"],
+                    )
+                    db.add(hut)
 
                 db.commit()
                 print(

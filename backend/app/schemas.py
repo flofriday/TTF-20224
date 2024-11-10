@@ -42,3 +42,21 @@ class SkiResortBase(BaseModel):
 
 class SkiResort(SkiResortBase):
     id: int
+
+
+class SkiHutBase(BaseModel):
+    name: str
+    resort_id: int
+    type: str
+    description: str
+    status: str
+    coordinates: str  # JSON string of [x, y] pixel coordinates
+    elevation: float
+    free_seats: int
+
+    class Config:
+        from_attributes = True
+
+
+class SkiHut(SkiHutBase):
+    id: int

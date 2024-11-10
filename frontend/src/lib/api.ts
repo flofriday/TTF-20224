@@ -46,3 +46,18 @@ export async function getResortMap(resortId: number): Promise<string> {
     const blob = await response.blob()
     return URL.createObjectURL(blob)
 }
+
+export async function getResortHuts(resortId: number) {
+    const response = await fetch(`/api/ski-resorts/${resortId}/huts`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+    })
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch huts: ${response.statusText}`)
+    }
+
+    return response.json()
+}

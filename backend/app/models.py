@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -40,3 +40,20 @@ class SkiResort(Base):
     total_lifts = Column(Integer)
     open_lifts = Column(Integer)
     ski_lifts = relationship("SkiLift", back_populates="ski_resort")
+    huts = relationship("SkiHut", back_populates="resort")
+
+
+class SkiHut(Base):
+    __tablename__ = "ski_huts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    resort_id = Column(Integer, ForeignKey("ski_resorts.id"))
+    name = Column(String)
+    type = Column(String)  # restaurant, cafe, bar, etc.
+    description = Column(String)
+    free_seats = Column(Integer)
+    status = Column(String)
+    coordinates = Column(String)  # JSON string of [x, y] pixel coordinates
+    elevation = Column(Float)
+
+    resort = relationship("SkiResort", back_populates="huts")

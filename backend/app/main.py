@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, File, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.responses import FileResponse
 from typing import List
 import json
 from . import database
@@ -7,7 +7,6 @@ from . import models
 from . import schemas
 import os
 from sqlalchemy.orm import Session
-import base64
 from .person_detection import detect_objects_from_base64
 
 app = FastAPI()
@@ -112,3 +111,9 @@ async def detect_people(image: dict):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/ski-resorts/{resort_id}/huts", response_model=List[schemas.SkiHut])
+def get_resort_huts(resort_id: int, db: Session = Depends(database.get_db)):
+    huts = db.query(models.SkiHut).filter(models.SkiHut.resort_id == resort_id).all()
+    return huts

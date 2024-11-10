@@ -60,3 +60,11 @@ htmlcov/
 
 # YOLO
 models/
+
+# Data
+data/
+
+# Images
+*.png
+*.jpg
+*.jpeg
