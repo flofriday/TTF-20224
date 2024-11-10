@@ -1,17 +1,14 @@
 import osmium
-import shapely.wkb as wkblib
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import requests
 import json
 from shapely.geometry import LineString
 import numpy as np
-from io import BytesIO
 import tempfile
 import os
 import sys
 from pathlib import Path
-from shapely.geometry import mapping
 import random
 from shapely.geometry import Polygon
 
@@ -506,57 +503,9 @@ if __name__ == "__main__":
     from app.database import engine, SessionLocal
     from app.models import Base, SkiLift, SkiResort
 
-    # List of major Austrian ski resorts
-    SKI_RESORTS = [
-        {
-            "name": "Obertauern",
-            "location": "Salzburg, Austria",
-            "description": "One of Austria's most snow-sure winter sports destinations, offering excellent skiing conditions from November to May.",
-            "website": "https://www.obertauern.com",
-        },
-        {
-            "name": "Sölden",
-            "location": "Tyrol, Austria",
-            "description": "Year-round glacier skiing area with modern infrastructure and extensive terrain.",
-            "website": "https://www.soelden.com",
-        },
-        {
-            "name": "Ischgl",
-            "location": "Tyrol, Austria",
-            "description": "Famous resort known for its extensive terrain and vibrant après-ski scene.",
-            "website": "https://www.ischgl.com",
-        },
-        {
-            "name": "Saalbach",
-            "location": "Salzburg, Austria",
-            "description": "Part of Austria's largest ski area, offering diverse terrain and modern lifts.",
-            "website": "https://www.saalbach.com",
-        },
-        {
-            "name": "Kitzbühel",
-            "location": "Tyrol, Austria",
-            "description": "Historic resort famous for the Hahnenkamm race, combining tradition with modern amenities.",
-            "website": "https://www.kitzbuehel.com",
-        },
-        {
-            "name": "Sankt Anton",
-            "location": "Tyrol, Austria",
-            "description": "Birthplace of alpine skiing, known for challenging terrain and extensive off-piste options.",
-            "website": "https://www.stantonamarlberg.com",
-        },
-        {
-            "name": "Mayrhofen",
-            "location": "Tyrol, Austria",
-            "description": "Popular resort in the Zillertal Valley, featuring the Hintertux glacier and varied terrain.",
-            "website": "https://www.mayrhofen.at",
-        },
-        {
-            "name": "Zell am See",
-            "location": "Salzburg, Austria",
-            "description": "Scenic lakeside resort with year-round glacier skiing on the Kitzsteinhorn.",
-            "website": "https://www.zellamsee-kaprun.com",
-        },
-    ]
+    # Load ski resorts from JSON file
+    with open(Path(__file__).parent.parent / "data" / "ski_resorts.json") as f:
+        SKI_RESORTS = json.load(f)["resorts"]
 
     # Drop and recreate all tables
     Base.metadata.drop_all(bind=engine)

@@ -1,0 +1,52 @@
+{
+    "resorts": [
+        {
+            "name": "Obertauern",
+            "location": "Salzburg, Austria",
+            "description": "One of Austria's most snow-sure winter sports destinations, offering excellent skiing conditions from November to May.",
+            "website": "https://www.obertauern.com"
+        },
+        {
+            "name": "Sölden",
+            "location": "Tyrol, Austria",
+            "description": "Year-round glacier skiing area with modern infrastructure and extensive terrain.",
+            "website": "https://www.soelden.com"
+        },
+        {
+            "name": "Ischgl",
+            "location": "Tyrol, Austria",
+            "description": "Famous resort known for its extensive terrain and vibrant après-ski scene.",
+            "website": "https://www.ischgl.com"
+        },
+        {
+            "name": "Saalbach",
+            "location": "Salzburg, Austria",
+            "description": "Part of Austria's largest ski area, offering diverse terrain and modern lifts.",
+            "website": "https://www.saalbach.com"
+        },
+        {
+            "name": "Kitzbühel",
+            "location": "Tyrol, Austria",
+            "description": "Historic resort famous for the Hahnenkamm race, combining tradition with modern amenities.",
+            "website": "https://www.kitzbuehel.com"
+        },
+        {
+            "name": "Sankt Anton",
+            "location": "Tyrol, Austria",
+            "description": "Birthplace of alpine skiing, known for challenging terrain and extensive off-piste options.",
+            "website": "https://www.stantonamarlberg.com"
+        },
+        {
+            "name": "Mayrhofen",
+            "location": "Tyrol, Austria",
+            "description": "Popular resort in the Zillertal Valley, featuring the Hintertux glacier and varied terrain.",
+            "website": "https://www.mayrhofen.at"
+        },
+        {
+            "name": "Zell am See",
+            "location": "Salzburg, Austria",
+            "description": "Scenic lakeside resort with year-round glacier skiing on the Kitzsteinhorn.",
+            "website": "https://www.zellamsee-kaprun.com"
+        }
+    ]
+}
