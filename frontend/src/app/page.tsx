@@ -14,6 +14,8 @@ import { useTheme } from 'next-themes'
 import { SkiResort } from '@/types/resort'
 import { ResortSelector } from '@/components/ResortSelector'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { Camera } from 'lucide-react'
+import Link from 'next/link'
 
 const typeIcons = {
     'express': '⚡',        // Express lift
@@ -294,6 +296,15 @@ export default function Home() {
                 </div>
 
             </main >
+
+            <div className="fixed bottom-4 right-4">
+                <Link href="/camera">
+                    <Button size="icon" className="rounded-full h-12 w-12">
+                        <Camera className="h-6 w-6" />
+                        <span className="sr-only">Open Camera</span>
+                    </Button>
+                </Link>
+            </div>
         </div >
     )
 }

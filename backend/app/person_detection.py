@@ -1,6 +1,10 @@
 import cv2
 import numpy as np
 from collections import Counter
+import base64
+from io import BytesIO
+from PIL import Image
+import os
 
 
 def detect_objects(image_path, confidence_threshold=0.01):
@@ -99,14 +103,51 @@ def detect_objects(image_path, confidence_threshold=0.01):
     return image, object_counts
 
 
+def detect_objects_from_base64(base64_string, confidence_threshold=0.01):
+    """
+    Detect objects from a base64 encoded image
+
+    Args:
+        base64_string (str): Base64 encoded image string
+        confidence_threshold (float): Minimum confidence threshold for detections (0-1)
+
+    Returns:
+        tuple: (base64 encoded annotated image, dict of object counts)
+    """
+    try:
+        # Decode base64 string to image
+        img_data = base64.b64decode(base64_string)
+
+        # Save temporary file
+        temp_path = "temp_image.jpg"
+        with open(temp_path, "wb") as f:
+            f.write(img_data)
+
+        # Process image
+        annotated_image, counts = detect_objects(temp_path)
+
+        # Convert annotated image back to base64
+        _, buffer = cv2.imencode(".jpg", annotated_image)
+        encoded_image = base64.b64encode(buffer).decode("utf-8")
+
+        # Clean up temp file
+        os.remove(temp_path)
+
+        return encoded_image, counts
+
+    except Exception as e:
+        raise Exception(f"Error processing image: {str(e)}")
+
+
 # Example usage
 if __name__ == "__main__":
+    number = 6
     # Process image
-    image_path = "data/ski_queue6.jpg"
+    image_path = f"data/ski_queue{number}.jpg"
     annotated_image, counts = detect_objects(image_path)
 
     # Save the result
-    cv2.imwrite("detected.jpg", annotated_image)
+    cv2.imwrite(f"detected_{number}.jpg", annotated_image)
 
     # Print counts
     print("\nObject counts:")
