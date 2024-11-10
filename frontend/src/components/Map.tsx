@@ -41,10 +41,25 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
     // Handle zooming
     const handleWheel = useCallback((e: WheelEvent) => {
         e.preventDefault()
+        const container = containerRef.current
+        if (!container) return
+
+        const rect = container.getBoundingClientRect()
+        const mouseX = e.clientX - rect.left
+        const mouseY = e.clientY - rect.top
+
         const delta = e.deltaY * -0.01
         const newZoom = Math.min(Math.max(zoom + delta, MIN_ZOOM), MAX_ZOOM)
+
+        // Calculate new pan position to keep the point under cursor in the same position
+        const newPan = {
+            x: mouseX - (mouseX - pan.x) * (newZoom / zoom),
+            y: mouseY - (mouseY - pan.y) * (newZoom / zoom)
+        }
+
         setZoom(newZoom)
-    }, [zoom])
+        setPan(newPan)
+    }, [zoom, pan])
 
     // Handle panning
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
