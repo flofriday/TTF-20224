@@ -39,7 +39,7 @@ export function HutListCard({ huts, selectedHut, onHutSelect }: HutListCardProps
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Mountain Huts</h2>
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Huts</h2>
                 <div className="flex gap-2">
                     <Badge variant="outline" className="flex items-center gap-1">
                         <Home className="w-3 h-3" />
