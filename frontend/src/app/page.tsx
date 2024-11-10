@@ -55,6 +55,7 @@ export default function Home() {
     const [mapUrl, setMapUrl] = useState<string | null>(null)
     const { theme } = useTheme()
     const [isStylesLoaded, setIsStylesLoaded] = useState(false)
+    const [zoomToLift, setZoomToLift] = useState<string | null>(null)
 
     // Initialize selected resort from URL parameter
     useEffect(() => {
@@ -189,6 +190,11 @@ export default function Home() {
         )
     }
 
+    const handleLiftSelect = (liftId: string) => {
+        setSelectedLift(liftId)
+        setZoomToLift(liftId) // Trigger zoom when selecting a lift
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
             <div className="absolute top-4 right-4 z-10">
@@ -232,6 +238,8 @@ export default function Home() {
                             difficultyColors={difficultyColors}
                             onLiftSelect={setSelectedLift}
                             isDarkMode={theme === 'dark'}
+                            zoomToLift={zoomToLift}
+                            onZoomComplete={() => setZoomToLift(null)}
                         />
 
                         {/* Status Legend */}
@@ -250,48 +258,46 @@ export default function Home() {
                 <div className="grid gap-4">
                     <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Lifts</h2>
                     <div className="grid gap-3">
-                        {lifts
-                            .sort((a, b) => a.wait_time - b.wait_time)
-                            .map((lift) => (
-                                <HoverCard key={lift.id}>
-                                    <HoverCardTrigger asChild>
-                                        <div
-                                            onClick={() => setSelectedLift(lift.id)}
-                                            className={`p-4 rounded-lg w-full justify-between group hover:shadow-md border-2 b
-                                                ${selectedLift === lift.id ? 'bg-gray-200 border-slate-700' : ''}
-                                                transition-all duration-300`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-xl">{typeIcons[lift.type]}</span>
-                                                <div className="flex flex-col items-start">
-                                                    <span className="font-medium">{lift.name}</span>
-                                                    <span className="text-sm text-slate-600">Estimated wait time: {lift.wait_time} min</span>
-                                                </div>
+                        {lifts.map((lift) => (
+                            <HoverCard key={lift.id}>
+                                <HoverCardTrigger asChild>
+                                    <div
+                                        onClick={() => handleLiftSelect(lift.id)}
+                                        className={`p-4 rounded-lg w-full justify-between group hover:shadow-md border-2
+                                            ${selectedLift === lift.id ? 'bg-gray-200 border-slate-700' : ''}
+                                            transition-all duration-300 cursor-pointer`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xl">{typeIcons[lift.type]}</span>
+                                            <div className="flex flex-col items-start">
+                                                <span className="font-medium">{lift.name}</span>
+                                                <span className="text-sm text-slate-600">Estimated wait time: {lift.wait_time} min</span>
                                             </div>
-                                            <div className="pt-2 flex gap-1 items-center">
+                                        </div>
+                                        <div className="pt-2 flex gap-1 items-center">
 
-                                                <Badge variant="secondary" className={`rounded-full ${statusColors[lift.status]}`}>
-                                                    {lift.status}
-                                                </Badge>
-                                            </div>
+                                            <Badge variant="secondary" className={`rounded-full ${statusColors[lift.status]}`}>
+                                                {lift.status}
+                                            </Badge>
                                         </div>
-                                    </HoverCardTrigger>
-                                    <HoverCardContent className="w-80">
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-semibold">{lift.name}</h4>
-                                            <div className="text-sm text-slate-600 space-y-1">
-                                                <p>Type: {lift.type}</p>
-                                                <p>Status: {lift.status}</p>
-                                                <p>Wait Time: {lift.wait_time} minutes</p>
-                                                <p>Difficulty: {lift.difficulty}</p>
-                                                {lift.description && (
-                                                    <p className="text-xs mt-2">{lift.description}</p>
-                                                )}
-                                            </div>
+                                    </div>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-80">
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold">{lift.name}</h4>
+                                        <div className="text-sm text-slate-600 space-y-1">
+                                            <p>Type: {lift.type}</p>
+                                            <p>Status: {lift.status}</p>
+                                            <p>Wait Time: {lift.wait_time} minutes</p>
+                                            <p>Difficulty: {lift.difficulty}</p>
+                                            {lift.description && (
+                                                <p className="text-xs mt-2">{lift.description}</p>
+                                            )}
                                         </div>
-                                    </HoverCardContent>
-                                </HoverCard>
-                            ))}
+                                    </div>
+                                </HoverCardContent>
+                            </HoverCard>
+                        ))}
                     </div>
                 </div>
 

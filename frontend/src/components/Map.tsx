@@ -9,6 +9,7 @@ import { drawLiftLine } from '@/lib/utils'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
+
 interface MapProps {
     lifts: Lift[]
     selectedLift: string | null
@@ -18,6 +19,8 @@ interface MapProps {
     difficultyColors: Record<string, string>
     onLiftSelect?: (liftId: string) => void
     isDarkMode?: boolean
+    zoomToLift?: string | null
+    onZoomComplete?: () => void
 }
 
 // Add constants for the base image dimensions
@@ -30,13 +33,17 @@ const MAX_ZOOM = 4
 
 
 
-export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, difficultyColors, onLiftSelect, isDarkMode }: MapProps) {
+export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, difficultyColors, onLiftSelect, isDarkMode, zoomToLift, onZoomComplete }: MapProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const [zoom, setZoom] = useState(1)
     const [pan, setPan] = useState({ x: 0, y: 0 })
     const [isDragging, setIsDragging] = useState(false)
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+    const [startPan, setStartPan] = useState({ x: 0, y: 0 })
+
+    const ORIGINAL_WIDTH = 1600
+    const ORIGINAL_HEIGHT = 1200
 
     // Handle zooming
     const handleWheel = useCallback((e: WheelEvent) => {
@@ -61,29 +68,87 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
         setPan(newPan)
     }, [zoom, pan])
 
-    // Handle panning
+    // Mouse event handlers
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
-        e.preventDefault()
         setIsDragging(true)
-        setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y })
+        setDragStart({ x: e.clientX, y: e.clientY })
+        setStartPan({ ...pan })
+        e.preventDefault()
     }, [pan])
 
     const handleMouseMove = useCallback((e: React.MouseEvent) => {
         if (!isDragging) return
-        setPan({
-            x: e.clientX - dragStart.x,
-            y: e.clientY - dragStart.y
-        })
-    }, [isDragging, dragStart])
 
-    const handleMouseUp = useCallback(() => {
+        const deltaX = e.clientX - dragStart.x
+        const deltaY = e.clientY - dragStart.y
+
+        setPan({
+            x: startPan.x + deltaX,
+            y: startPan.y + deltaY
+        })
+        e.preventDefault()
+    }, [isDragging, dragStart.x, dragStart.y, startPan])
+
+    const handleMouseUp = useCallback((e: React.MouseEvent) => {
         setIsDragging(false)
+        e.preventDefault()
     }, [])
 
+    // Effect to handle zoom to lift
+    useEffect(() => {
+        if (!zoomToLift || !containerRef.current) return
+
+        const lift = lifts.find(l => l.id === zoomToLift)
+        if (!lift) return
+
+        const path = typeof lift.path === 'string' ? JSON.parse(lift.path) : lift.path
+        if (!path || path.length === 0) return
+
+        const containerRect = containerRef.current.getBoundingClientRect()
+
+        // Find the bounds of the lift path
+        let minX = Math.min(...path.map(p => p[0]))
+        let maxX = Math.max(...path.map(p => p[0]))
+        let minY = Math.min(...path.map(p => p[1]))
+        let maxY = Math.max(...path.map(p => p[1]))
+
+        // Calculate center point of the lift
+        const centerX = (minX + maxX) / 2
+        const centerY = (minY + maxY) / 2
+
+        // Calculate lift dimensions
+        const liftWidth = maxX - minX
+        const liftHeight = maxY - minY
+
+        // Calculate zoom level to fit the lift with padding
+        const padding = 100 // pixels
+        const scaleX = containerRect.width / (liftWidth * (containerRect.width / ORIGINAL_WIDTH))
+        const scaleY = containerRect.height / (liftHeight * (containerRect.height / ORIGINAL_HEIGHT))
+        const newZoom = Math.min(
+            Math.max(Math.min(scaleX, scaleY) * 0.8, MIN_ZOOM),
+            MAX_ZOOM
+        )
+
+        // Calculate pan to center the lift
+        const newPan = {
+            x: (containerRect.width / 2) - (centerX * (containerRect.width / ORIGINAL_WIDTH) * newZoom),
+            y: (containerRect.height / 2) - (centerY * (containerRect.height / ORIGINAL_HEIGHT) * newZoom)
+        }
+
+        setZoom(newZoom)
+        setPan(newPan)
+
+        // Notify parent that zoom is complete
+        setTimeout(() => {
+            onZoomComplete?.()
+        }, 300)
+    }, [zoomToLift, lifts, onZoomComplete])
+
     // Reset function
-    const handleReset = useCallback(() => {
+    const handleReset = useCallback((e: React.MouseEvent) => {
         setZoom(1)
         setPan({ x: 0, y: 0 })
+        e.stopPropagation()
     }, [])
 
     const drawLifts = useCallback(() => {
@@ -144,7 +209,6 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
         container.addEventListener('wheel', handleWheel, { passive: false })
         return () => container.removeEventListener('wheel', handleWheel)
     }, [handleWheel])
-
     return (
         <Card
             ref={containerRef}
@@ -156,19 +220,8 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
         >
-            {zoom !== 1 && (
-                <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute top-2 right-2 z-10 bg-opacity-75 hover:bg-opacity-100"
-                    onClick={handleReset}
-                >
-                    <RefreshCw className="h-4 w-4" />
-                </Button>
-            )}
-
             <div
-                className="absolute inset-0"
+                className="absolute inset-0 transition-transform duration-300 ease-out"
                 style={{
                     transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
                     transformOrigin: '0 0'
@@ -186,8 +239,21 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
                 <canvas
                     ref={canvasRef}
                     className="absolute inset-0 pointer-events-none"
+                    width={containerRef.current?.clientWidth}
+                    height={containerRef.current?.clientHeight}
                 />
             </div>
+
+            {zoom !== 1 && (
+                <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute top-2 right-2 z-10 bg-opacity-75 hover:bg-opacity-100"
+                    onClick={handleReset}
+                >
+                    <RefreshCw className="h-4 w-4" />
+                </Button>
+            )}
         </Card>
     )
 }
