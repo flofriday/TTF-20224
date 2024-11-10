@@ -75,6 +75,7 @@ export default function Home() {
     const [zoomToLift, setZoomToLift] = useState<string | null>(null)
     const [huts, setHuts] = useState<Hut[]>([])
     const [selectedHut, setSelectedHut] = useState<Hut | null>(null)
+    const [zoomToHut, setZoomToHut] = useState<string | null>(null)
 
     // Initialize selected resort from URL parameter
     useEffect(() => {
@@ -221,6 +222,11 @@ export default function Home() {
         setZoomToLift(liftId) // Trigger zoom when selecting a lift
     }
 
+    const handleHutSelect = (hut: Hut) => {
+        setSelectedHut(hut)
+        setZoomToHut(hut.id) // Trigger zoom when selecting a hut
+    }
+
     // Sort lifts - moved outside of useMemo for simplicity
     const sortedLifts = [...lifts].sort((a, b) => {
         // First sort by status (closed goes to bottom)
@@ -280,7 +286,11 @@ export default function Home() {
                             onHutSelect={setSelectedHut}
                             isDarkMode={theme === 'dark'}
                             zoomToLift={zoomToLift}
-                            onZoomComplete={() => setZoomToLift(null)}
+                            zoomToHut={zoomToHut}
+                            onZoomComplete={() => {
+                                setZoomToLift(null)
+                                setZoomToHut(null)
+                            }}
                         />
 
                         {/* Status Legend */}
@@ -374,7 +384,7 @@ export default function Home() {
                             <HutListCard
                                 huts={huts}
                                 selectedHut={selectedHut}
-                                onHutSelect={setSelectedHut}
+                                onHutSelect={handleHutSelect}
                             />
                         </TabsContent>
                     </Tabs>

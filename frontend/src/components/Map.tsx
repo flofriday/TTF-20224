@@ -8,19 +8,23 @@ import { Lift } from '@/types/lift'
 import { drawLiftLine } from '@/lib/utils'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-
+import { Hut } from '@/types'
 
 interface MapProps {
     lifts: Lift[]
-    selectedLift: string | null
-    mapUrl: string | null
+    selectedLift: Lift | null
+    huts: Hut[]
+    selectedHut: Hut | null
+    mapUrl: string
     statusColors: Record<string, string>
-    typeIcons: Record<string, string>
+    typeIcons: Record<string, JSX.Element>
     difficultyColors: Record<string, string>
-    onLiftSelect?: (liftId: string) => void
-    isDarkMode?: boolean
-    zoomToLift?: string | null
-    onZoomComplete?: () => void
+    onLiftSelect: (lift: Lift) => void
+    onHutSelect: (hut: Hut) => void
+    isDarkMode: boolean
+    zoomToLift: string | null
+    zoomToHut: number | null
+    onZoomComplete: () => void
 }
 
 // Add constants for the base image dimensions
@@ -33,7 +37,22 @@ const MAX_ZOOM = 4
 
 
 
-export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, difficultyColors, onLiftSelect, isDarkMode, zoomToLift, onZoomComplete }: MapProps) {
+export function Map({
+    lifts,
+    selectedLift,
+    huts,
+    selectedHut,
+    mapUrl,
+    statusColors,
+    typeIcons,
+    difficultyColors,
+    onLiftSelect,
+    onHutSelect,
+    isDarkMode,
+    zoomToLift,
+    zoomToHut,
+    onZoomComplete
+}: MapProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const [zoom, setZoom] = useState(1)
@@ -44,6 +63,75 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
 
     const ORIGINAL_WIDTH = 1600
     const ORIGINAL_HEIGHT = 1200
+
+    // Function to calculate bounds for a path or point
+    const getBounds = useCallback((element: number[][] | [number, number]) => {
+        if (!Array.isArray(element[0])) {
+            // Single point (hut)
+            const point = element as [number, number]
+            return {
+                minX: point[0] - 50,
+                maxX: point[0] + 50,
+                minY: point[1] - 50,
+                maxY: point[1] + 50
+            }
+        }
+        // Path (lift)
+        const path = element as number[][]
+        const xs = path.map(p => p[0])
+        const ys = path.map(p => p[1])
+        return {
+            minX: Math.min(...xs),
+            maxX: Math.max(...xs),
+            minY: Math.min(...ys),
+            maxY: Math.max(...ys)
+        }
+    }, [])
+
+    // Function to zoom to an element
+    const zoomToElement = useCallback((element: number[][] | [number, number]) => {
+        if (!containerRef.current) return
+
+        const bounds = getBounds(element)
+        const containerRect = containerRef.current.getBoundingClientRect()
+
+        const padding = 50
+        const scaleX = containerRect.width / (bounds.maxX - bounds.minX + padding * 2)
+        const scaleY = containerRect.height / (bounds.maxY - bounds.minY + padding * 2)
+        const newZoom = Math.min(Math.max(Math.min(scaleX, scaleY) * 0.8, 1), 4)
+
+        const centerX = (bounds.minX + bounds.maxX) / 2
+        const centerY = (bounds.minY + bounds.maxY) / 2
+
+        setPan({
+            x: (containerRect.width / 2) - (centerX * (containerRect.width / BASE_WIDTH) * newZoom),
+            y: (containerRect.height / 2) - (centerY * (containerRect.height / BASE_HEIGHT) * newZoom)
+        })
+        setZoom(newZoom)
+
+        setTimeout(() => {
+            onZoomComplete?.()
+        }, 300)
+    }, [onZoomComplete])
+
+    // Effect to handle zooming to lifts or huts
+    useEffect(() => {
+        if (zoomToLift) {
+            const lift = lifts.find(l => l.id === zoomToLift)
+            if (lift?.path) {
+                const path = typeof lift.path === 'string' ? JSON.parse(lift.path) : lift.path
+                zoomToElement(path)
+            }
+        } else if (zoomToHut) {
+            const hut = huts.find(h => h.id === zoomToHut)
+            if (hut?.coordinates) {
+                const coords = typeof hut.coordinates === 'string'
+                    ? JSON.parse(hut.coordinates)
+                    : hut.coordinates
+                zoomToElement(coords)
+            }
+        }
+    }, [zoomToLift, zoomToHut, lifts, huts, zoomToElement])
 
     // Handle zooming
     const handleWheel = useCallback((e: WheelEvent) => {
@@ -92,63 +180,6 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
     const handleMouseUp = useCallback((e: React.MouseEvent) => {
         setIsDragging(false)
         e.preventDefault()
-    }, [])
-
-    // Effect to handle zoom to lift
-    useEffect(() => {
-        if (!zoomToLift || !containerRef.current) return
-
-        const lift = lifts.find(l => l.id === zoomToLift)
-        if (!lift) return
-
-        const path = typeof lift.path === 'string' ? JSON.parse(lift.path) : lift.path
-        if (!path || path.length === 0) return
-
-        const containerRect = containerRef.current.getBoundingClientRect()
-
-        // Find the bounds of the lift path
-        let minX = Math.min(...path.map(p => p[0]))
-        let maxX = Math.max(...path.map(p => p[0]))
-        let minY = Math.min(...path.map(p => p[1]))
-        let maxY = Math.max(...path.map(p => p[1]))
-
-        // Calculate center point of the lift
-        const centerX = (minX + maxX) / 2
-        const centerY = (minY + maxY) / 2
-
-        // Calculate lift dimensions
-        const liftWidth = maxX - minX
-        const liftHeight = maxY - minY
-
-        // Calculate zoom level to fit the lift with padding
-        const padding = 100 // pixels
-        const scaleX = containerRect.width / (liftWidth * (containerRect.width / ORIGINAL_WIDTH))
-        const scaleY = containerRect.height / (liftHeight * (containerRect.height / ORIGINAL_HEIGHT))
-        const newZoom = Math.min(
-            Math.max(Math.min(scaleX, scaleY) * 0.8, MIN_ZOOM),
-            MAX_ZOOM
-        )
-
-        // Calculate pan to center the lift
-        const newPan = {
-            x: (containerRect.width / 2) - (centerX * (containerRect.width / ORIGINAL_WIDTH) * newZoom),
-            y: (containerRect.height / 2) - (centerY * (containerRect.height / ORIGINAL_HEIGHT) * newZoom)
-        }
-
-        setZoom(newZoom)
-        setPan(newPan)
-
-        // Notify parent that zoom is complete
-        setTimeout(() => {
-            onZoomComplete?.()
-        }, 300)
-    }, [zoomToLift, lifts, onZoomComplete])
-
-    // Reset function
-    const handleReset = useCallback((e: React.MouseEvent) => {
-        setZoom(1)
-        setPan({ x: 0, y: 0 })
-        e.stopPropagation()
     }, [])
 
     const drawLifts = useCallback(() => {
@@ -208,6 +239,14 @@ export function Map({ lifts, selectedLift, mapUrl, statusColors, typeIcons, diff
         container.addEventListener('wheel', handleWheel, { passive: false })
         return () => container.removeEventListener('wheel', handleWheel)
     }, [handleWheel])
+
+    // Reset function
+    const handleReset = useCallback((e: React.MouseEvent) => {
+        setZoom(1)
+        setPan({ x: 0, y: 0 })
+        e.stopPropagation()
+    }, [])
+
     return (
         <Card
             ref={containerRef}
