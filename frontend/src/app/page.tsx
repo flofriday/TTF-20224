@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -195,6 +195,18 @@ export default function Home() {
         setZoomToLift(liftId) // Trigger zoom when selecting a lift
     }
 
+    // Sort lifts - moved outside of useMemo for simplicity
+    const sortedLifts = [...lifts].sort((a, b) => {
+        // First sort by status (closed goes to bottom)
+        if (a.status === 'closed' && b.status !== 'closed') return 1
+        if (a.status !== 'closed' && b.status === 'closed') return -1
+
+        // Then sort by wait time for open lifts
+        if (a.wait_time === undefined) return 1
+        if (b.wait_time === undefined) return -1
+        return (a.wait_time || 0) - (b.wait_time || 0)
+    })
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
             <div className="absolute top-4 right-4 z-10">
@@ -258,7 +270,7 @@ export default function Home() {
                 <div className="grid gap-4">
                     <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Lifts</h2>
                     <div className="grid gap-3">
-                        {lifts.map((lift) => (
+                        {sortedLifts.map((lift) => (
                             <HoverCard key={lift.id}>
                                 <HoverCardTrigger asChild>
                                     <div
@@ -271,11 +283,15 @@ export default function Home() {
                                             <span className="text-xl">{typeIcons[lift.type]}</span>
                                             <div className="flex flex-col items-start">
                                                 <span className="font-medium">{lift.name}</span>
-                                                <span className="text-sm text-slate-600">Estimated wait time: {lift.wait_time} min</span>
+                                                <span className="text-sm text-slate-600">
+                                                    {lift.status === 'closed'
+                                                        ? 'Currently closed'
+                                                        : `Estimated wait time: ${lift.wait_time} min`
+                                                    }
+                                                </span>
                                             </div>
                                         </div>
                                         <div className="pt-2 flex gap-1 items-center">
-
                                             <Badge variant="secondary" className={`rounded-full ${statusColors[lift.status]}`}>
                                                 {lift.status}
                                             </Badge>
@@ -288,7 +304,12 @@ export default function Home() {
                                         <div className="text-sm text-slate-600 space-y-1">
                                             <p>Type: {lift.type}</p>
                                             <p>Status: {lift.status}</p>
-                                            <p>Wait Time: {lift.wait_time} minutes</p>
+                                            <p>
+                                                {lift.status === 'closed'
+                                                    ? 'Wait Time: Indefinitely'
+                                                    : `Wait Time: ${lift.wait_time} minutes`
+                                                }
+                                            </p>
                                             <p>Difficulty: {lift.difficulty}</p>
                                             {lift.description && (
                                                 <p className="text-xs mt-2">{lift.description}</p>
