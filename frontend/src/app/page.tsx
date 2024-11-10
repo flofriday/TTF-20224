@@ -30,6 +30,8 @@ const typeIcons = {
     'station': '🏠',      // Station/terminal
     'goods': '📦',        // Goods lift
     'drag_lift': '↟',     // Drag lift
+    'rope_tow': '🔄',     // Rope tow
+    'explosive': '💥'    // Explosives for avalanche control
 }
 
 const difficultyColors = {
