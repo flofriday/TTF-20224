@@ -1,4 +1,4 @@
-# TTF-2024
+# TTF-2024 - SlopeFlow
 
 Our entry for the [Tourism Tech Festival 2.0](https://tourism-technology.com/) (2024)
 
